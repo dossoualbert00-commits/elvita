@@ -1,5 +1,5 @@
-// EL VITA Service Worker - Cache-first offline support
-const CACHE_NAME = 'elvita-cache-v2';
+// EL VITA Service Worker - Network-first for navigation, Cache-first for assets with offline support
+const CACHE_NAME = 'elvita-cache-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,17 +7,18 @@ const ASSETS_TO_CACHE = [
   './medical_data.js',
   './app.js',
   './manifest.json',
-  './assets/logo.jpeg',
-  './assets/founder.png'
+  './assets/logo.png',
+  './assets/banner.jpg',
+  './assets/founder.jpg'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -30,30 +31,49 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  
+  // Pour la page HTML principale (navigation) : Réseau d'abord pour avoir la dernière version, puis cache
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match('./index.html') || caches.match('./');
+        })
+    );
+    return;
+  }
+
+  // Pour les autres ressources (CSS, JS, images) : Cache d'abord, sinon réseau
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(req).then((cachedResponse) => {
       if (cachedResponse) {
+        // En arrière-plan, rafraîchir le cache
+        fetch(req).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, networkResponse));
+          }
+        }).catch(() => {});
         return cachedResponse;
       }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
+      return fetch(req).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, responseToCache));
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return networkResponse;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
       });
     })
   );
