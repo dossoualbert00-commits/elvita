@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>EL VITA — Compagnon Clinique Médical</title>
+  
+  <!-- Métadonnées PWA & iOS Safari -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EL VITA">
+  <link rel="apple-touch-icon" href="assets/logo.jpeg">
+  <meta name="theme-color" content="#0B192C">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- En-tête Sticky -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <img src="assets/logo.jpeg" alt="Logo EL VITA" class="brand-logo">
+      <div>
+        <div class="brand-title">EL VITA</div>
+        <div class="brand-subtitle">Compagnon Clinique Médical</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="theme-toggle-btn" onclick="toggleTheme()" title="Mode sombre / clair">🌙</button>
+      <button class="btn-icon" onclick="openModal('modal-profile')" title="Profil Étudiant">👤</button>
+      <button class="btn-icon" onclick="openModal('modal-about')" title="À propos d'EL VITA">ℹ️</button>
+    </div>
+  </header>
+
+  <!-- 1. ONGLET ACCUEIL -->
+  <main id="tab-home" class="tab-content active">
+    <div class="hero-banner">
+      <span class="student-badge">Espace Étudiant Hospitalier</span>
+      <div class="hero-name" id="hero-student-name">Étudiant en médecine</div>
+      <div class="hero-sub">DFASM 2 • CHU Pôle Médecine Interne</div>
+    </div>
+
+    <div class="actions-grid">
+      <div class="action-card blue" onclick="switchTab('clinical')">
+        <div class="action-icon">📋</div>
+        <div class="action-title">Observation</div>
+        <div class="action-desc">Rédiger un dossier complet</div>
+      </div>
+      <div class="action-card green" onclick="switchTab('vitals')">
+        <div class="action-icon">📈</div>
+        <div class="action-title">Constantes</div>
+        <div class="action-desc">Saisie & alertes PAM/IMC</div>
+      </div>
+      <div class="action-card amber" onclick="switchTab('labs')">
+        <div class="action-icon">🧪</div>
+        <div class="action-title">Analyses NFS</div>
+        <div class="action-desc">Conclusion en 6 parties</div>
+      </div>
+      <div class="action-card purple" onclick="switchTab('semiology')">
+        <div class="action-icon">📖</div>
+        <div class="action-title">Encyclopédie</div>
+        <div class="action-desc">29 Fiches & 90+ Quiz</div>
+      </div>
+    </div>
+
+    <!-- Patients Pédagogiques -->
+    <div class="card">
+      <div class="card-title">
+        <span>👥</span> Dossiers Patients Hospitalisés
+      </div>
+      <div class="section-callout" style="cursor: pointer;" onclick="openModal('modal-patient-p1')">
+        <strong>Mme Claire B. (68 ans) — Chambre 214</strong>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+          Pneumologie • PFLA à pneumocoque • Fièvre 39.2°C, crépitants base droite
+        </p>
+      </div>
+      <div class="section-callout" style="cursor: pointer;" onclick="openModal('modal-patient-p2')">
+        <strong>M. Marc T. (54 ans) — Chambre 105</strong>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+          Cardiologie • SCA ST- • Douleur rétrosternale constrictive d'effort
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <!-- 2. ONGLET CLINIQUE -->
+  <section id="tab-clinical" class="tab-content">
+    <div class="subnav-pills">
+      <button class="pill-btn active" id="pill-clinical-obs" onclick="switchSubTab('clinical', 'obs')">Observation Médicale</button>
+      <button class="pill-btn" id="pill-clinical-daily" onclick="switchSubTab('clinical', 'daily')">Suivi Quotidien (Jx)</button>
+      <button class="pill-btn" id="pill-clinical-training" onclick="switchSubTab('clinical', 'training')">Formation Clinique</button>
+    </div>
+
+    <!-- Sous-onglet Observation Médicale Complète -->
+    <div id="clinical-sub-obs" class="subtab-panel">
+      <div class="card">
+        <div class="card-title"><span>📝</span> Rdaction d'Observation Initiale Complète</div>
+        
+        <div class="form-group">
+          <label class="form-label">Identité ou Alias du Patient :</label>
+          <input type="text" id="obs-patient-name" class="form-input" value="Mme Claire B. (68 ans)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motif d'hospitalisation :</label>
+          <textarea id="obs-motif" class="form-textarea" rows="2">Syndrome fébrile brutal avec frissons, point de côté thoracique droit et toux productive rouillée.</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Histoire de la maladie (HDM) :</label>
+          <textarea id="obs-hdm" class="form-textarea" rows="3">Début il y a 48h par des frissons solennels puis une fièvre à 39.5°C, douleur pleurétique basithoracique droite majorée par l'inspiration.</textarea>
+        </div>
+
+        <div class="card mb-3" style="padding: 12px; background: var(--surface-variant);">
+          <h4 style="font-size: 13.5px; font-weight: 700; margin-bottom: 8px;">Antécédents & Terrain :</h4>
+          <div class="form-group">
+            <label class="form-label">Médicaux :</label>
+            <input type="text" id="obs-atcd-med" class="form-input" value="HTA essentielle sous IEC depuis 6 ans">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chirurgicaux & Allergies :</label>
+            <input type="text" id="obs-atcd-chir" class="form-input" value="Appendicectomie enfance • Aucune allergie médicamenteuse">
+          </div>
+        </div>
+
+        <div class="card mb-3" style="padding: 12px; background: var(--surface-variant);">
+          <h4 style="font-size: 13.5px; font-weight: 700; margin-bottom: 8px;">Examen Physique Systématique par Appareils :</h4>
+          <div class="form-group">
+            <label class="form-label">Examen respiratoire :</label>
+            <textarea id="obs-resp" class="form-textarea" rows="2">Syndrome de condensation pulmonaire lobaire inférieur droit : matité franche, augmentation des vibrations vocales, râles crépitants fins et souffle tubaire.</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Examen cardiovasculaire :</label>
+            <textarea id="obs-cv" class="form-textarea" rows="2">Bruits du cœur réguliers sans souffle ni frottement. Pas de turgescence jugulaire ni de signes d'insuffisance cardiaque droite.</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Examen digestif & neurologique :</label>
+            <textarea id="obs-dig-neuro" class="form-textarea" rows="2">Abdomen souple, dépressible, indolore. Patiente consciente et orientée (GCS 15/15), sans raideur de nuque.</textarea>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Synthèse clinique & Hypothèses diagnostiques :</label>
+          <textarea id="obs-synthese" class="form-textarea" rows="2">Pneumopathie Franche Lobaire Aiguë (PFLA) à Streptococcus pneumoniae (pneumocoque) sans critère de gravité immédiat (CRB65 = 1).</textarea>
+        </div>
+
+        <button class="btn-primary" onclick="generateFullClinicalDraft()">
+          <span>⚡</span> Générer le Compte-Rendu Médical Formaté
+        </button>
+
+        <div id="obs-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Sous-onglet Suivi Jx -->
+    <div id="clinical-sub-daily" class="subtab-panel" style="display: none;">
+      <div class="card">
+        <div class="card-title"><span>📅</span> Point Clinique Quotidien (Évolution Jx)</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Jour d'hospitalisation :</label>
+            <input type="text" id="daily-day" class="form-input" value="J2">
+          </div>
+          <div class="form-group">
+            <label class="form-label">État général :</label>
+            <input type="text" id="daily-gen" class="form-input" value="Apyrétique, patiente assise">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Évolution clinique constatée :</label>
+          <textarea id="daily-text" class="form-textarea" rows="3">Apyrexie stable (37.8°C). Régression de la douleur pleurétique sous paracétamol. Diminution du souffle tubaire, persistance de quelques râles de décrudescence.</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nouveaux examens & Conduite à tenir :</label>
+          <textarea id="daily-plan" class="form-textarea" rows="2">Antigénurie pneumococcique positive confirmant le diagnostic. Poursuite de l'Amoxicilline 1g x 3/jour. Sevrage en oxygène.</textarea>
+        </div>
+        <button class="btn-primary" onclick="alert('Point clinique J2 enregistré localement avec succès !')">Enregistrer le Suivi</button>
+      </div>
+    </div>
+
+    <!-- Sous-onglet Formation Clinique (14 Compétences) -->
+    <div id="clinical-sub-training" class="subtab-panel" style="display: none;">
+      <div id="clinical-training-content"></div>
+    </div>
+  </section>
+
+  <!-- 3. ONGLET MESURES / CONSTANTES -->
+  <section id="tab-vitals" class="tab-content">
+    <div class="card">
+      <div class="card-title"><span>🩺</span> Saisie & Interprétation des Constantes</div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Température (°C) :</label>
+          <input type="number" step="0.1" id="vital-temp" class="form-input" value="38.8">
+        </div>
+        <div class="form-group">
+          <label class="form-label">SpO2 (%) :</label>
+          <input type="number" id="vital-spo2" class="form-input" value="93">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">PA Systolique (mmHg) :</label>
+          <input type="number" id="vital-pas" class="form-input" value="115">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PA Diastolique (mmHg) :</label>
+          <input type="number" id="vital-pad" class="form-input" value="70">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Fréquence Cardiaque (bpm) :</label>
+          <input type="number" id="vital-fc" class="form-input" value="102">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fréquence Respiratoire (/min) :</label>
+          <input type="number" id="vital-fr" class="form-input" value="24">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Poids (kg) :</label>
+          <input type="number" id="vital-weight" class="form-input" value="68">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Taille (cm) :</label>
+          <input type="number" id="vital-height" class="form-input" value="165">
+        </div>
+      </div>
+
+      <button class="btn-primary mt-3" onclick="calculateVitals()">
+        <span>🔍</span> Analyser les Constantes Vitales
+      </button>
+
+      <div id="vitals-result" class="result-box" style="display: none;"></div>
+    </div>
+  </section>
+
+  <!-- 4. ONGLET ANALYSES BIOLOGIQUES (7 Outils Cliniques) -->
+  <section id="tab-labs" class="tab-content">
+    <div class="subnav-pills">
+      <button class="pill-btn active" id="pill-labs-nfs" onclick="switchSubTab('labs', 'nfs')">NFS (Hématologie)</button>
+      <button class="pill-btn" id="pill-labs-glasgow" onclick="switchSubTab('labs', 'glasgow')">Score de Glasgow</button>
+      <button class="pill-btn" id="pill-labs-renal" onclick="switchSubTab('labs', 'renal')">Fonction Rénale</button>
+      <button class="pill-btn" id="pill-labs-hep" onclick="switchSubTab('labs', 'hep')">Bilan Hépatique</button>
+      <button class="pill-btn" id="pill-labs-coag" onclick="switchSubTab('labs', 'coag')">Coagulation & CRP</button>
+    </div>
+
+    <!-- NFS Subtab -->
+    <div id="labs-sub-nfs" class="subtab-panel">
+      <div class="card">
+        <div class="card-title"><span>🩸</span> Formule Sanguine Complète (NFS)</div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Hémoglobine (g/dL) :</label>
+            <input type="number" step="0.1" id="nfs-hb" class="form-input" value="9.2">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hématocrite (%) :</label>
+            <input type="number" step="0.1" id="nfs-ht" class="form-input" value="27.0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Hématies (T/L) :</label>
+            <input type="number" step="0.1" id="nfs-gr" class="form-input" value="3.8">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Leucocytes Totaux (G/L) :</label>
+            <input type="number" step="0.1" id="nfs-gb" class="form-input" value="11.5">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Polynucléaires Neutrophiles (G/L) :</label>
+            <input type="number" step="0.1" id="nfs-pnn" class="form-input" value="8.4">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lymphocytes (G/L) :</label>
+            <input type="number" step="0.1" id="nfs-lympho" class="form-input" value="1.8">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Plaquettes (G/L) :</label>
+            <input type="number" id="nfs-plt" class="form-input" value="520">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Réticulocytes (G/L) :</label>
+            <input type="number" id="nfs-retic" class="form-input" placeholder="Optionnel (ex: 45)">
+          </div>
+        </div>
+
+        <button class="btn-primary mt-3" onclick="calculateNFS()">
+          <span>🔬</span> Produire la Synthèse Hématologique Globale
+        </button>
+
+        <div id="nfs-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Glasgow Subtab -->
+    <div id="labs-sub-glasgow" class="subtab-panel" style="display: none;">
+      <div class="card">
+        <div class="card-title"><span>🧠</span> Échelle de Coma de Glasgow (GCS)</div>
+        <div class="form-group">
+          <label class="form-label">Ouverture des yeux (E) :</label>
+          <select id="gcs-e" class="form-select">
+            <option value="4">4 — Spontanée</option>
+            <option value="3">3 — Au bruit / à la demande</option>
+            <option value="2">2 — À la douleur</option>
+            <option value="1">1 — Nulle</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Réponse verbale (V) :</label>
+          <select id="gcs-v" class="form-select">
+            <option value="5">5 — Orientée et appropriée</option>
+            <option value="4">4 — Confuse</option>
+            <option value="3">3 — Paroles inappropriées</option>
+            <option value="2">2 — Sons incompréhensibles (gémissements)</option>
+            <option value="1">1 — Nulle</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Réponse motrice (M) :</label>
+          <select id="gcs-m" class="form-select">
+            <option value="6">6 — Obéit aux ordres</option>
+            <option value="5">5 — Orientée à la douleur (chasse le stimulus)</option>
+            <option value="4">4 — Évitement non adapté / retrait</option>
+            <option value="3">3 — Décortication (flexion anormale)</option>
+            <option value="2">2 — Décérébration (extension stéréotypée)</option>
+            <option value="1">1 — Nulle</option>
+          </select>
+        </div>
+        <button class="btn-primary mt-3" onclick="calculateGlasgow()">Calculer le Score de Glasgow</button>
+        <div id="gcs-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Renal Subtab -->
+    <div id="labs-sub-renal" class="subtab-panel" style="display: none;">
+      <div class="card">
+        <div class="card-title"><span>💧</span> Estimation Débit Filtration Glomérulaire (Cockcroft-Gault)</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Créatinine (µmol/L) :</label>
+            <input type="number" id="ren-creat" class="form-input" value="85">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Âge (ans) :</label>
+            <input type="number" id="ren-age" class="form-input" value="65">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Poids (kg) :</label>
+            <input type="number" id="ren-weight" class="form-input" value="70">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sexe :</label>
+            <select id="ren-gender" class="form-select">
+              <option value="M">Homme (K = 1.23)</option>
+              <option value="F">Femme (K = 1.04)</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primary mt-3" onclick="calculateRenal()">Calculer la Clairance de la Créatinine</button>
+        <div id="ren-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Hepatic Subtab -->
+    <div id="labs-sub-hep" class="subtab-panel" style="display: none;">
+      <div class="card">
+        <div class="card-title"><span>🟡</span> Bilan Hépatique & Lipasémie</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">ALAT (UI/L) :</label>
+            <input type="number" id="hep-alat" class="form-input" value="35">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ASAT (UI/L) :</label>
+            <input type="number" id="hep-asat" class="form-input" value="32">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">PAL (UI/L) :</label>
+            <input type="number" id="hep-pal" class="form-input" value="75">
+          </div>
+          <div class="form-group">
+            <label class="form-label">GGT (UI/L) :</label>
+            <input type="number" id="hep-ggt" class="form-input" value="28">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Bilirubine Totale (µmol/L) :</label>
+            <input type="number" id="hep-bili" class="form-input" value="14">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lipase (UI/L) :</label>
+            <input type="number" id="hep-lipase" class="form-input" value="40">
+          </div>
+        </div>
+        <button class="btn-primary mt-3" onclick="calculateHepatic()">Interpréter le Bilan Hépatique</button>
+        <div id="hep-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Coagulation Subtab -->
+    <div id="labs-sub-coag" class="subtab-panel" style="display: none;">
+      <div class="card">
+        <div class="card-title"><span>🩸</span> Coagulation & Inflammation</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">CRP (mg/L) :</label>
+            <input type="number" id="coag-crp" class="form-input" value="8">
+          </div>
+          <div class="form-group">
+            <label class="form-label">TP (%) :</label>
+            <input type="number" id="coag-tp" class="form-input" value="95">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">INR :</label>
+            <input type="number" step="0.1" id="coag-inr" class="form-input" value="1.0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">D-Dimères (ng/mL) :</label>
+            <input type="number" id="coag-ddim" class="form-input" value="320">
+          </div>
+        </div>
+        <button class="btn-primary mt-3" onclick="calculateCoag()">Analyser Hémostase & Inflammation</button>
+        <div id="coag-result" class="result-box" style="display: none;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. ONGLET SÉMIOLOGIE (29 FICHES MÉDICALES & 90+ QUIZ) -->
+  <section id="tab-semiology" class="tab-content">
+    <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+      <button class="pill-btn active" id="semiology-mode-sheets-btn" style="flex: 1; text-align: center;" onclick="switchSemiologyMode('sheets')">
+        📚 Fiches Médicales (29)
+      </button>
+      <button class="pill-btn" id="semiology-mode-quiz-btn" style="flex: 1; text-align: center;" onclick="switchSemiologyMode('quiz')">
+        🎯 Quiz Sémiologiques (90+)
+      </button>
+    </div>
+
+    <!-- Filtres par appareil -->
+    <div class="subnav-pills">
+      <button class="pill-btn apparatus-pill active" id="pill-app-all" onclick="setApparatusFilter('all')">Tous</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-cardio" onclick="setApparatusFilter('cardio')">Cardio</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-resp" onclick="setApparatusFilter('resp')">Respiratoire</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-digestif" onclick="setApparatusFilter('digestif')">Digestif</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-neuro" onclick="setApparatusFilter('neuro')">Neurologie</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-urinaire" onclick="setApparatusFilter('urinaire')">Urinaire</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-rhumatologie" onclick="setApparatusFilter('rhumatologie')">Rhumato</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-dermatologie" onclick="setApparatusFilter('dermatologie')">Dermato</button>
+      <button class="pill-btn apparatus-pill" id="pill-app-general" onclick="setApparatusFilter('general')">Général</button>
+    </div>
+
+    <!-- Container Fiches Médicales -->
+    <div id="semiology-sheets-container">
+      <div class="form-group mb-3">
+        <input type="text" id="semiology-search-input" class="form-input" placeholder="🔍 Rechercher un signe clinique (angor, dyspnée, souffle, ictère...)" oninput="renderSheets()">
+      </div>
+      <div id="semiology-sheets-list"></div>
+    </div>
+
+    <!-- Container Quiz -->
+    <div id="semiology-quiz-container" style="display: none;">
+      <div class="card mb-3" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700;">Cas Cliniques & QCM</h3>
+          <p style="font-size: 12px; color: var(--text-secondary);">Raisonnement diagnostique & justification</p>
+        </div>
+        <span class="student-badge" id="quiz-counter-badge">90 Questions</span>
+      </div>
+      <div id="semiology-quiz-list"></div>
+    </div>
+  </section>
+
+  <!-- MODALE DÉTAIL D'UNE FICHE SÉMIOLOGIQUE (14 SECTIONS) -->
+  <div id="modal-sheet-detail" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+      <button class="modal-close" onclick="closeModal('modal-sheet-detail')">✕</button>
+      <div id="modal-sheet-content-body"></div>
+    </div>
+  </div>
+
+  <!-- MODALE PROFIL ÉTUDIANT -->
+  <div id="modal-profile" class="modal-overlay">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('modal-profile')">✕</button>
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 14px;">Profil de l'Étudiant</h2>
+      <div class="form-group">
+        <label class="form-label">Nom et Prénom :</label>
+        <input type="text" id="prof-name" class="form-input" value="Étudiant en médecine">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Année d'étude :</label>
+        <input type="text" id="prof-year" class="form-input" value="DFASM 2 (5e Année)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Faculté de Médecine :</label>
+        <input type="text" id="prof-uni" class="form-input" value="Faculté des Sciences de la Santé">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hôpital / Service actuel :</label>
+        <input type="text" id="prof-hosp" class="form-input" value="CHU - Pôle Médecine Interne">
+      </div>
+      <button class="btn-primary mt-3" onclick="saveProfile()">Enregistrer les modifications</button>
+    </div>
+  </div>
+
+  <!-- MODALE À PROPOS D'EL VITA (TEXTES INSTITUTIONNELS COMPLETS) -->
+  <div id="modal-about" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+      <button class="modal-close" onclick="closeModal('modal-about')">✕</button>
+      
+      <img src="assets/founder.png" alt="Dr Albert DOSSOU" class="founder-img">
+      <div class="text-center mb-3">
+        <h2 style="font-size: 20px; font-weight: 800; color: var(--primary);">EL VITA</h2>
+        <div style="font-size: 13.5px; color: var(--text-secondary); font-weight: 600;">Plateforme Pédagogique Médicale Indépendante</div>
+        <div style="font-size: 13px; color: var(--primary); font-weight: 700; margin-top: 2px;">Fondé par le Dr Albert DOSSOU</div>
+      </div>
+
+      <div class="section-callout mb-3">
+        <strong>Présentation & Vision Institutionnelle :</strong>
+        <p style="margin-top: 4px; font-size: 13.5px; line-height: 1.6;">
+          EL VITA est une solution médicale et pédagogique indépendante née de la volonté d'accompagner les étudiants en médecine et jeunes praticiens vers une pratique clinique d'excellence, rigoureuse et humaine.
+        </p>
+      </div>
+
+      <div class="card mb-3" style="padding: 14px;">
+        <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 6px;">Biographie du Fondateur :</h4>
+        <p style="font-size: 13px; line-height: 1.6; color: var(--text-secondary);">
+          Médecin praticien passionné par la pédagogie clinique, la sémiologie et les technologies de santé, le <strong>Dr Albert DOSSOU</strong> a conçu EL VITA pour combler le fossé entre la théorie académique et la réalité complexe des gardes et du lit du malade.
+        </p>
+      </div>
+
+      <div class="card mb-3" style="padding: 14px;">
+        <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 6px;">Piliers Déontologiques & Éthiques :</h4>
+        <ul style="font-size: 13px; padding-left: 18px; line-height: 1.6;">
+          <li><strong>Confidentialité Absolue :</strong> Aucune donnée clinique ou personnelle de patient n'est transmise ni stockée sur des serveurs distants.</li>
+          <li><strong>Autonomie Totale :</strong> Fonctionnement 100% hors connexion adapté aux réalités des hôpitaux et zones blanches.</li>
+          <li><strong>Aide à la Décision :</strong> Outil pédagogique ne se substituant jamais au jugement clinique du médecin responsable.</li>
+        </ul>
+      </div>
+
+      <div class="section-callout mb-3" style="border-left-color: #10B981; background: rgba(16, 185, 129, 0.08);">
+        <strong style="color: #065F46;">Contact & Échange Institutionnel :</strong>
+        <p style="margin-top: 4px; font-size: 13px;">
+          Email officiel : <a href="mailto:dossoualbert00@gmail.com" style="color: var(--primary); font-weight: 700;">dossoualbert00@gmail.com</a>
+        </p>
+      </div>
+
+      <div class="text-center" style="font-size: 11.5px; color: var(--text-muted); margin-top: 14px;">
+        Version 1.0.0 • Tous droits réservés © EL VITA
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE PATIENT CLAIRE B. -->
+  <div id="modal-patient-p1" class="modal-overlay">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('modal-patient-p1')">✕</button>
+      <h2 style="font-size: 17px; font-weight: 800; margin-bottom: 10px;">Dossier : Mme Claire B. (68 ans)</h2>
+      <div class="section-callout mb-3">
+        <strong>Diagnostic principal :</strong> Pneumopathie Franche Lobaire Aiguë (PFLA) du lobe inférieur droit.
+      </div>
+      <p style="font-size: 13.5px; line-height: 1.6; margin-bottom: 12px;">
+        Patiente admise pour syndrome infectieux pulmonaire avec frissons solennels, toux productive et douleur pleurétique. Mise sous Amoxicilline 1g x 3/jour et oxygénothérapie titrée. Évolution favorable à J2.
+      </p>
+      <button class="btn-primary" onclick="closeModal('modal-patient-p1'); switchTab('clinical');">Voir l'Observation</button>
+    </div>
+  </div>
+
+  <!-- MODALE PATIENT MARC T. -->
+  <div id="modal-patient-p2" class="modal-overlay">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('modal-patient-p2')">✕</button>
+      <h2 style="font-size: 17px; font-weight: 800; margin-bottom: 10px;">Dossier : M. Marc T. (54 ans)</h2>
+      <div class="section-callout mb-3">
+        <strong>Diagnostic principal :</strong> Syndrome Coronarien Aigu sans sus-décalage de ST (SCA ST-).
+      </div>
+      <p style="font-size: 13.5px; line-height: 1.6; margin-bottom: 12px;">
+        Patient hypertendu tabagique présentant des douleurs thoraciques rétrosternales d'effort typiques. Scope ECG continu, dosage des troponines H0/H3.
+      </p>
+      <button class="btn-primary" onclick="closeModal('modal-patient-p2'); switchTab('vitals');">Consulter les Constantes</button>
+    </div>
+  </div>
+
+  <!-- BARRE DE NAVIGATION INFÉRIEURE (5 ONGLETS IDENTIQUES À ANDROID) -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="switchTab('home')">
+      <div class="nav-icon">🏠</div>
+      <div>Accueil</div>
+    </div>
+    <div class="nav-item" id="nav-clinical" onclick="switchTab('clinical')">
+      <div class="nav-icon">📋</div>
+      <div>Clinique</div>
+    </div>
+    <div class="nav-item" id="nav-vitals" onclick="switchTab('vitals')">
+      <div class="nav-icon">📈</div>
+      <div>Mesures</div>
+    </div>
+    <div class="nav-item" id="nav-labs" onclick="switchTab('labs')">
+      <div class="nav-icon">🧪</div>
+      <div>Analyses</div>
+    </div>
+    <div class="nav-item" id="nav-semiology" onclick="switchTab('semiology')">
+      <div class="nav-icon">📖</div>
+      <div>Sémiologie</div>
+    </div>
+  </nav>
+
+  <!-- CHARGEMENT DES BASES DE DONNÉES MÉDICALES ET LOGIQUE -->
+  <script src="medical_data.js"></script>
+  <script src="app.js"></script>
+
+  <script>
+    function generateFullClinicalDraft() {
+      const patient = document.getElementById('obs-patient-name').value;
+      const motif = document.getElementById('obs-motif').value;
+      const hdm = document.getElementById('obs-hdm').value;
+      const atcdMed = document.getElementById('obs-atcd-med').value;
+      const atcdChir = document.getElementById('obs-atcd-chir').value;
+      const resp = document.getElementById('obs-resp').value;
+      const cv = document.getElementById('obs-cv').value;
+      const digNeuro = document.getElementById('obs-dig-neuro').value;
+      const synthese = document.getElementById('obs-synthese').value;
+
+      const res = document.getElementById('obs-result');
+      res.innerHTML = `
+        <div class="alert-badge NORMAL"><span>✓</span> Observation Rédigée avec Succès</div>
+        <div class="section-callout" style="background: var(--surface-variant);">
+          <pre style="white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.6;">
+OBSERVATION MÉDICALE INITIALE
+PATIENT : ${patient}
+
+MOTIF D'ADMISSION :
+${motif}
+
+HISTOIRE DE LA MALADIE :
+${hdm}
+
+ANTÉCÉDENTS :
+- Médicaux : ${atcdMed}
+- Chirurgicaux / Allergies : ${atcdChir}
+
+EXAMEN PHYSIQUE :
+- Respiratoire : ${resp}
+- Cardiovasculaire : ${cv}
+- Digestif & Neurologique : ${digNeuro}
+
+SYNTHÈSE CLINIQUE & HYPOTHÈSES DIAGNOSTIQUES :
+${synthese}
+
+El Vita est un outil d'aide à l'observation clinique et ne se substitue pas au jugement du praticien.</pre>
+        </div>
+      `;
+      res.style.display = 'block';
+    }
+
+    function saveProfile() {
+      const name = document.getElementById('prof-name').value;
+      const year = document.getElementById('prof-year').value;
+      const uni = document.getElementById('prof-uni').value;
+      const hosp = document.getElementById('prof-hosp').value;
+
+      currentProfile = { name, studyYear: year, university: uni, hospital: hosp };
+      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(currentProfile));
+
+      const heroName = document.getElementById('hero-student-name');
+      if (heroName) heroName.textContent = name;
+
+      closeModal('modal-profile');
+      alert('Profil étudiant mis à jour !');
+    }
+  </script>
+</body>
+</html>
