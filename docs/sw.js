@@ -1,5 +1,5 @@
 // EL VITA Service Worker - Network-first for navigation, Cache-first for assets with offline support
-const CACHE_NAME = 'elvita-cache-v3';
+const CACHE_NAME = 'elvita-cache-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
