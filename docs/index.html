@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="assets/logo.png">
   <meta name="theme-color" content="#0B192C">
 
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -743,10 +743,9 @@
       <button class="modal-close-btn" onclick="closeModal('modal-settings')">✕</button>
       
       <div style="text-align: center; margin-bottom: 18px;">
-        <img src="assets/founder.jpg" alt="Dr Albert DOSSOU" style="width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid #0284C7; margin: 0 auto 10px auto; display: block;">
+        <img src="assets/logo.png" alt="Logo EL VITA" style="width: 52px; height: 52px; border-radius: 12px; margin: 0 auto 8px auto; display: block;">
         <h2 style="font-size: 20px; font-weight: 900; color: #38BDF8;">EL VITA</h2>
-        <div style="font-size: 13px; color: var(--text-secondary); font-weight: 600;">Plateforme Pédagogique Médicale Indépendante</div>
-        <div style="font-size: 13.5px; color: #F8FAFC; font-weight: 700; margin-top: 2px;">Fondé par le Dr Albert DOSSOU</div>
+        <div style="font-size: 12.5px; color: var(--text-secondary); font-weight: 600;">Compagnon Clinique & Pédagogique</div>
       </div>
 
       <!-- Configuration Étudiant -->
@@ -771,6 +770,46 @@
         <button class="btn-primary" onclick="saveProfile()">Enregistrer mon Profil</button>
       </div>
 
+      <!-- Section Officielle Fondateur (Fidèle à AboutElVitaScreen Android) -->
+      <div class="card mb-3" style="text-align: center; border: 1.5px solid #0284C7; padding: 20px 16px;">
+        <span class="prev-tag mb-2" style="background: rgba(2, 132, 199, 0.2); color: #38BDF8; font-size: 11px;">DIRECTION & PROPRIÉTÉ DE LA PLATEFORME</span>
+        
+        <!-- Cadre Portrait 2:3 avec centrage précis du visage -->
+        <div style="margin: 14px auto 16px auto; width: 100%; max-width: 250px; border-radius: 16px; overflow: hidden; border: 2.5px solid #0284C7; box-shadow: 0 10px 25px rgba(0,0,0,0.5); background: #0B132B;">
+          <img src="assets/founder.jpg" alt="Albert DOSSOU, Fondateur et propriétaire d'El Vita" style="width: 100%; height: auto; aspect-ratio: 2/3; object-fit: cover; object-position: center 15%; display: block;">
+        </div>
+
+        <h3 style="font-size: 20px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.8px;">ALBERT DOSSOU</h3>
+        <div style="font-size: 13.5px; font-weight: 700; color: #38BDF8; margin-top: 2px;">Fondateur et propriétaire d'El Vita</div>
+
+        <div style="margin: 14px 0 12px 0; height: 1px; background: rgba(255,255,255,0.1);"></div>
+
+        <p style="font-size: 12.5px; line-height: 1.65; color: #CBD5E1; text-align: justify; margin-bottom: 0;">
+          « El Vita est une initiative indépendante portée par Albert Dossou, son fondateur et propriétaire.<br><br>
+          À travers ce projet, il souhaite contribuer à rendre l'apprentissage médical plus accessible et à mettre les outils numériques au service de la formation des futurs professionnels de santé.<br><br>
+          El Vita est développée avec une ambition : proposer aux étudiants en médecine un environnement d'apprentissage utile, pratique et évolutif. »
+        </p>
+      </div>
+
+      <!-- Rubrique Institutionnelle À propos d'El Vita -->
+      <div class="card mb-3">
+        <div class="card-title">À Propos d'El Vita</div>
+        <p style="font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 12px;">
+          <strong>EL VITA</strong> est un outil d'aide à l'observation et au raisonnement clinique au lit du malade, conçu pour fonctionner à 100% hors connexion et garantir le respect absolu du secret médical.
+        </p>
+
+        <div class="disclaimer-banner" style="margin: 0 0 12px 0;">
+          <span class="disclaimer-icon">🔒</span>
+          <div><strong>Confidentialité Absolue :</strong> Aucune donnée patient ne transite sur des serveurs distants. Tout est stocké exclusivement sur votre appareil.</div>
+        </div>
+
+        <div style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.6;">
+          <div>• <strong>Contact Officiel :</strong> <a href="mailto:dossoualbert00@gmail.com" style="color: #38BDF8; font-weight: 700;">dossoualbert00@gmail.com</a></div>
+          <div style="margin-top: 4px;">• <strong>Version :</strong> 1.0.0 (Native Android & iOS PWA)</div>
+          <div style="margin-top: 4px;">• <strong>Propriété Intellectuelle :</strong> Tous droits réservés © EL VITA</div>
+        </div>
+      </div>
+
       <!-- Thème & Préférences -->
       <div class="card mb-3" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -778,25 +817,6 @@
           <div style="font-size: 11.5px; color: var(--text-secondary);">Basculer l'apparence visuelle</div>
         </div>
         <button class="pill-item" onclick="toggleTheme()">☀️ / 🌙</button>
-      </div>
-
-      <!-- Rubrique Institutionnelle À propos d'El Vita -->
-      <div class="card mb-3">
-        <div class="card-title">À Propos d'El Vita</div>
-        <p style="font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 12px;">
-          <strong>EL VITA</strong> est né de la volonté du <strong>Dr Albert DOSSOU</strong> de doter chaque étudiant en médecine d'un compagnon clinique rigoureux, 100% hors connexion, respectueux du secret médical et centré sur l'excellence diagnostique au lit du malade.
-        </p>
-
-        <div class="disclaimer-banner" style="margin: 0 0 12px 0;">
-          <span class="disclaimer-icon">🔒</span>
-          <div><strong>Confidentialité Absolue :</strong> Aucune donnée de patient ne transite sur des serveurs distants. Tout reste stocké exclusivement sur votre appareil.</div>
-        </div>
-
-        <div style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.6;">
-          <div>• <strong>Contact Officiel :</strong> <a href="mailto:dossoualbert00@gmail.com" style="color: #38BDF8; font-weight: 700;">dossoualbert00@gmail.com</a></div>
-          <div style="margin-top: 4px;">• <strong>Version :</strong> 1.0.0 (Multiplateforme Native & PWA)</div>
-          <div style="margin-top: 4px;">• <strong>Propriété Intellectuelle :</strong> Tous droits réservés © EL VITA</div>
-        </div>
       </div>
     </div>
   </div>
@@ -826,7 +846,7 @@
   </div>
 
   <!-- Scripts -->
-  <script src="medical_data.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="medical_data.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
