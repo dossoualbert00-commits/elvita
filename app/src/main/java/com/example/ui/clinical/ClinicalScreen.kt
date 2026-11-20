@@ -196,7 +196,7 @@ fun ClinicalScreen(
                   DropdownMenuItem(
                     text = { Text("Saisir un nouveau dossier patient") },
                     onClick = {
-                      viewModel.updatePatientIdFields("", "45", "Homme", "Médecine Interne", "Chambre 101")
+                      viewModel.resetObservationForNewPatient()
                       patientMenuExpanded = false
                     }
                   )
@@ -207,6 +207,40 @@ fun ClinicalScreen(
                         viewModel.selectPatientForObservation(p)
                         patientMenuExpanded = false
                       }
+                    )
+                  }
+                }
+              }
+
+              if (obsForm.patientId != null && obsForm.syncStatusMessage.isNotBlank()) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MedicalTeal.copy(alpha = 0.1f))
+                    .border(1.dp, MedicalTeal.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Text(
+                    text = obsForm.syncStatusMessage,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                  )
+                  IconButton(
+                    onClick = {
+                      viewModel.refreshSelectedPatientSyncData()
+                      Toast.makeText(context, "Données du dossier actualisées", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(34.dp).testTag("obs_refresh_sync_btn")
+                  ) {
+                    Icon(
+                      imageVector = Icons.Default.Refresh,
+                      contentDescription = "Actualiser depuis le dossier",
+                      tint = MedicalTeal,
+                      modifier = Modifier.size(18.dp)
                     )
                   }
                 }
@@ -379,14 +413,19 @@ fun ClinicalScreen(
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
               )
+              Text(
+                text = "Intègre l'état de conscience (Score de Glasgow de Mesures) et les dernières constantes — modifiable localement.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
               Spacer(modifier = Modifier.height(6.dp))
               OutlinedTextField(
                 value = obsForm.generalExam,
                 onValueChange = { viewModel.updateObsFields(generalExam = it) },
                 placeholder = { Text("ex: Conscient GCS 15, OMS 1. Constantes : TA 130/80, FC 75, FR 16, SpO2 98%, T° 37.2°C...") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("obs_general_exam"),
                 shape = RoundedCornerShape(10.dp),
-                minLines = 2
+                minLines = 3
               )
             }
           }
@@ -460,14 +499,19 @@ fun ClinicalScreen(
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
               )
+              Text(
+                text = "Bilans biologiques importés du dossier Analyses (modifiable sans altérer les résultats enregistrés).",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
               Spacer(modifier = Modifier.height(6.dp))
               OutlinedTextField(
                 value = obsForm.complementaryExams,
                 onValueChange = { viewModel.updateObsFields(compExams = it) },
                 placeholder = { Text("Résultats NFS, Ionogramme, Troponine, ECG, Radiographie, Scanner...") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("obs_complementary_exams"),
                 shape = RoundedCornerShape(10.dp),
-                minLines = 2
+                minLines = 3
               )
             }
           }

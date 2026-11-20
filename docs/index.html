@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="assets/logo.png">
   <meta name="theme-color" content="#0B192C">
 
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -32,11 +32,11 @@
         </div>
         <div class="home-header-actions">
           <button class="circle-action-btn" onclick="openModal('modal-patients')" title="Dossiers des patients">📁</button>
-          <button class="circle-action-btn" onclick="openModal('modal-settings')" title="Profil & À propos">👤</button>
+          <button class="circle-action-btn" id="home-profile-btn" onclick="openModal('modal-settings')" title="Profil & À propos">👤</button>
         </div>
       </div>
 
-      <div class="greeting-title">Bonjour, Confrère Externe</div>
+      <div class="greeting-title">Bonjour, <span id="hero-student-name">Confrère Externe</span></div>
       <div class="greeting-sub">Prêt pour votre apprentissage clinique et le tour de salle d'aujourd'hui ?</div>
 
       <!-- Disclaimer Médical Déontologique -->
@@ -50,10 +50,10 @@
       <!-- Hero Banner Image (Clinical Case Review) -->
       <img src="assets/banner.jpg" alt="Clinical Case Review" class="hero-case-img">
 
-      <!-- Section A : Prévention Médicale & Vigilance (6 Fiches Repères) -->
+      <!-- Section A : Prévention Médicale & Vigilance (23 Fiches Repères) -->
       <div class="section-header">
         <div class="section-title-bold">A. Prévention Médicale & Vigilance</div>
-        <div class="section-badge-link" onclick="openAllPreventionsModal()">6 Fiches Repères</div>
+        <div class="section-badge-link" id="prevention-count-badge" onclick="openAllPreventionsModal()">23 Fiches Repères</div>
       </div>
 
       <div class="prevention-carousel" id="prevention-carousel-container"></div>
@@ -101,12 +101,13 @@
   <!-- ══════════════════════════════════════════════════════════ -->
   <section id="tab-vitals" class="tab-content">
     <div class="module-top-banner">
-      <div class="module-banner-title">Constantes & Paramètres Vitaux</div>
-      <div class="module-banner-sub">Saisie, interprétation clinique et courbes d'évolution</div>
+      <div class="module-banner-title">Constantes & Score de Glasgow</div>
+      <div class="module-banner-sub">Saisie, interprétation clinique, GCS et courbes d'évolution par patient</div>
     </div>
 
     <div class="module-tabs-bar">
       <button class="module-tab-btn active" id="tab-btn-vitals-input" onclick="switchSubTab('vitals', 'input')">Saisie des Constantes</button>
+      <button class="module-tab-btn" id="tab-btn-vitals-glasgow" onclick="switchSubTab('vitals', 'glasgow')">Score de Glasgow</button>
       <button class="module-tab-btn" id="tab-btn-vitals-curves" onclick="switchSubTab('vitals', 'curves')">Historique & Courbes</button>
     </div>
 
@@ -119,10 +120,10 @@
       <!-- Sous-onglet Saisie des Constantes -->
       <div id="vitals-sub-input" class="subtab-panel">
         <div class="card">
-          <div class="form-group">
-            <label class="form-label">Patient associé (Optionnel)</label>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Dossier Patient associé</label>
             <div style="display: flex; gap: 8px;">
-              <select id="vitals-patient-select" class="form-select" style="flex: 1;">
+              <select id="vitals-patient-select" class="form-select" style="flex: 1;" onchange="syncActivePatient(this.value)">
                 <option value="0">Mesure ponctuelle (sans dossier associé)</option>
               </select>
               <button class="pill-item" onclick="openModal('modal-add-patient')" style="background: var(--medical-blue); color: white;">+ Nouveau</button>
@@ -183,10 +184,69 @@
           </div>
 
           <button class="btn-primary" onclick="calculateVitals()">
-            <span>🔍</span> Analyser les Constantes Vitales
+            <span>🔍</span> Analyser & Enregistrer les Constantes
           </button>
 
           <div id="vitals-result" style="display: none; margin-top: 14px;"></div>
+        </div>
+      </div>
+
+      <!-- Sous-onglet Score de Glasgow (Déplacé depuis Analyses avec obligation de patient) -->
+      <div id="vitals-sub-glasgow" class="subtab-panel" style="display: none;">
+        <div class="card">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Dossier Patient (Obligatoire pour enregistrer) *</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="glasgow-patient-select" class="form-select" style="flex: 1;" onchange="syncActivePatient(this.value)">
+                <option value="0">— Sélectionner un dossier patient —</option>
+              </select>
+              <button class="pill-item" onclick="openModal('modal-add-patient')" style="background: var(--medical-blue); color: white;">+ Nouveau</button>
+            </div>
+          </div>
+          <div id="glasgow-patient-warning" style="display: none; margin-top: 10px; padding: 10px; border-radius: 8px; background: rgba(220, 38, 38, 0.15); border: 1px solid #DC2626; color: #FCA5A5; font-size: 12.5px; font-weight: 700;">
+            ⚠️ Veuillez sélectionner ou créer un dossier patient avant d'enregistrer un Score de Glasgow.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Échelle de Coma de Glasgow (GCS)</div>
+          <div class="form-group">
+            <label class="form-label">Ouverture des yeux (E) :</label>
+            <select id="gcs-e" class="form-select">
+              <option value="4">4 — Spontanée</option>
+              <option value="3">3 — Au bruit / à la demande</option>
+              <option value="2">2 — À la douleur</option>
+              <option value="1">1 — Nulle</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Réponse verbale (V) :</label>
+            <select id="gcs-v" class="form-select">
+              <option value="5">5 — Orientée et appropriée</option>
+              <option value="4">4 — Confuse</option>
+              <option value="3">3 — Paroles inappropriées</option>
+              <option value="2">2 — Sons incompréhensibles</option>
+              <option value="1">1 — Nulle</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Réponse motrice (M) :</label>
+            <select id="gcs-m" class="form-select">
+              <option value="6">6 — Obéit aux ordres</option>
+              <option value="5">5 — Orientée à la douleur</option>
+              <option value="4">4 — Retrait non adapté</option>
+              <option value="3">3 — Décortication (flexion)</option>
+              <option value="2">2 — Décérébration (extension)</option>
+              <option value="1">1 — Nulle</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="calculateAndSaveGlasgow()">🧠 Évaluer & Enregistrer le Score GCS</button>
+          <div id="gcs-result" style="display: none; margin-top: 14px;"></div>
+        </div>
+
+        <div class="card" id="glasgow-history-card">
+          <div class="card-title">Historique GCS du Patient Sélectionné</div>
+          <div id="glasgow-history-list" style="font-size: 12.5px; color: var(--text-secondary);">Sélectionnez un dossier patient pour consulter ses scores de Glasgow enregistrés.</div>
         </div>
       </div>
 
@@ -195,6 +255,10 @@
         <div class="card">
           <div class="card-title">Courbes Évolutives des Constantes</div>
           <div id="vitals-chart-container" style="padding: 10px 0;"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Historique des Mesures Enregistrées</div>
+          <div id="vitals-history-list" style="font-size: 12.5px; color: var(--text-secondary);"></div>
         </div>
       </div>
     </div>
@@ -227,7 +291,7 @@
             <div style="width: 40px; height: 40px; border-radius: 50%; background: #0284C7; display: flex; align-items: center; justify-content: center; font-size: 20px;">🎓</div>
             <div>
               <div style="font-size: 14.5px; font-weight: 800; color: #F8FAFC;">Formation Clinique Pédagogique</div>
-              <div style="font-size: 11px; color: #94A3B8;">Interrogatoire (14 points), Organisation, Observation & Synthèse</div>
+              <div style="font-size: 11px; color: #94A3B8;">Interrogatoire (14 pts), Organisation, Observation, Synthèse, Transitions & Présentation Orale</div>
             </div>
           </div>
           <span style="font-size: 16px; color: #38BDF8;">▼</span>
@@ -246,6 +310,7 @@
                 <option value="new">Saisir un nouveau dossier patient</option>
               </select>
             </div>
+            <div id="obs-patient-sync-banner" class="sync-banner" style="display: none;"></div>
             <div class="form-group">
               <label class="form-label">Nom et prénom ou pseudonyme</label>
               <input type="text" id="obs-patient-name" class="form-input" value="Mme Claire B. (Cas Pédagogique)">
@@ -299,6 +364,14 @@
               <label class="form-label">Examen digestif & neurologique :</label>
               <textarea id="obs-dig-neuro" class="form-textarea" rows="2">Abdomen souple, indolore. Patiente consciente et orientée (GCS 15/15), absence de raideur de nuque.</textarea>
             </div>
+            <div class="form-group">
+              <label class="form-label">Examen général & Constantes synchronisées :</label>
+              <textarea id="obs-general" class="form-textarea" rows="2" placeholder="Constantes, conscience (GCS), état général..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Examens paracliniques complémentaires :</label>
+              <textarea id="obs-paraclinical" class="form-textarea" rows="2" placeholder="Bilans biologiques et conclusions synchronisés du dossier..."></textarea>
+            </div>
           </div>
 
           <div style="margin-bottom: 14px;">
@@ -307,7 +380,7 @@
           </div>
 
           <button class="btn-primary" onclick="generateClinicalDraft()">
-            <span>⚡</span> Rédiger l'Observation Clinique Structurée
+            <span>⚡</span> Rédiger & Enregistrer l'Observation dans le Dossier
           </button>
 
           <div id="obs-result" style="display: none; margin-top: 14px;"></div>
@@ -340,9 +413,10 @@
             <label class="form-label">Examens du jour & Conduite à tenir</label>
             <textarea id="daily-plan" class="form-textarea" rows="2">Antigénurie pneumococcique positive confirmée. Poursuite de l'Amoxicilline 1g x 3/jour. Sevrage en O2 engagé.</textarea>
           </div>
-          <button class="btn-primary" onclick="alert('Point clinique J2 enregistré localement avec succès !')">
-            Enregistrer la Mise à Jour Jx
+          <button class="btn-primary" onclick="saveDailyUpdate()">
+            Enregistrer la Mise à Jour Jx dans le Dossier
           </button>
+          <div id="daily-result" style="display: none; margin-top: 14px;"></div>
         </div>
       </div>
     </div>
@@ -353,8 +427,8 @@
   <!-- ══════════════════════════════════════════════════════════ -->
   <section id="tab-labs" class="tab-content">
     <div class="module-top-banner">
-      <div class="module-banner-title">Analyses Biologiques & Scores</div>
-      <div class="module-banner-sub">NFS complète, Ionogramme, Foie, Hémostase, Urines et Glasgow</div>
+      <div class="module-banner-title">Analyses Biologiques</div>
+      <div class="module-banner-sub">NFS complète, Ionogramme/Rein, Foie, Hémostase & Bandelette Urinaire</div>
     </div>
 
     <div class="module-tabs-bar">
@@ -362,7 +436,7 @@
       <button class="module-tab-btn" id="tab-btn-labs-renal" onclick="switchSubTab('labs', 'renal')">B. UECréat / Rein</button>
       <button class="module-tab-btn" id="tab-btn-labs-hep" onclick="switchSubTab('labs', 'hep')">C. Bilan Hépatique</button>
       <button class="module-tab-btn" id="tab-btn-labs-coag" onclick="switchSubTab('labs', 'coag')">D. Hémostase & Inflam</button>
-      <button class="module-tab-btn" id="tab-btn-labs-glasgow" onclick="switchSubTab('labs', 'glasgow')">E. Score de Glasgow</button>
+      <button class="module-tab-btn" id="tab-btn-labs-urine" onclick="switchSubTab('labs', 'urine')">E. Bandelette Urinaire</button>
     </div>
 
     <div class="disclaimer-banner">
@@ -371,6 +445,14 @@
     </div>
 
     <div class="content-body">
+      <div class="card">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Rattacher l'analyse au Dossier Patient</label>
+          <select id="labs-patient-select" class="form-select" onchange="syncActivePatient(this.value)">
+            <option value="0">Analyse ponctuelle (sans dossier associé)</option>
+          </select>
+        </div>
+      </div>
       <!-- Sous-onglet A. NFS Complète (Formulaire exact Image 4) -->
       <div id="labs-sub-nfs" class="subtab-panel">
         <div class="card">
@@ -455,21 +537,49 @@
         </div>
       </div>
 
-      <!-- Autres Sous-onglets Analyses -->
+      <!-- B. UECréat / Ionogramme & Rein -->
       <div id="labs-sub-renal" class="subtab-panel" style="display: none;">
         <div class="card">
-          <div class="card-title">Fonction Rénale & Cockcroft-Gault</div>
+          <div class="card-title">Ionogramme, Équilibre Acido-Basique & Fonction Rénale</div>
           <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Urée (mmol/L)</label>
+              <input type="number" step="0.1" id="ren-urea" class="form-input" value="5.2">
+            </div>
             <div class="form-group">
               <label class="form-label">Créatininémie (µmol/L)</label>
               <input type="number" id="ren-creat" class="form-input" value="78">
             </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Natrémie Na+ (mmol/L)</label>
+              <input type="number" step="0.1" id="ren-na" class="form-input" value="140">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Kaliémie K+ (mmol/L)</label>
+              <input type="number" step="0.1" id="ren-k" class="form-input" value="4.2">
+            </div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">Cl- (mmol/L)</label>
+              <input type="number" id="ren-cl" class="form-input" value="102">
+            </div>
+            <div class="form-group">
+              <label class="form-label">HCO3- (mmol/L)</label>
+              <input type="number" id="ren-hco3" class="form-input" value="24">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Glycémie (g/L)</label>
+              <input type="number" step="0.01" id="ren-gly" class="form-input" value="0.95">
+            </div>
+          </div>
+          <div class="form-row-3">
             <div class="form-group">
               <label class="form-label">Âge (ans)</label>
               <input type="number" id="ren-age" class="form-input" value="65">
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Poids (kg)</label>
               <input type="number" id="ren-weight" class="form-input" value="70">
@@ -477,16 +587,17 @@
             <div class="form-group">
               <label class="form-label">Sexe</label>
               <select id="ren-gender" class="form-select">
-                <option value="M">Homme (K = 1.23)</option>
-                <option value="F">Femme (K = 1.04)</option>
+                <option value="M">Homme</option>
+                <option value="F">Femme</option>
               </select>
             </div>
           </div>
-          <button class="btn-primary" onclick="calculateRenal()">Calculer la Clairance de la Créatinine</button>
+          <button class="btn-primary" onclick="calculateRenal()">Interpréter Ionogramme & Clairance</button>
           <div id="ren-result" style="display: none; margin-top: 14px;"></div>
         </div>
       </div>
 
+      <!-- C. Bilan Hépatique & Pancréatique -->
       <div id="labs-sub-hep" class="subtab-panel" style="display: none;">
         <div class="card">
           <div class="card-title">Bilan Hépatique & Pancréatique</div>
@@ -510,13 +621,17 @@
               <input type="number" id="hep-ggt" class="form-input" value="25">
             </div>
           </div>
-          <div class="form-row">
+          <div class="form-row-3">
             <div class="form-group">
-              <label class="form-label">Bilirubine Totale (µmol/L)</label>
+              <label class="form-label">Bili Tot (µmol/L)</label>
               <input type="number" id="hep-bili" class="form-input" value="12">
             </div>
             <div class="form-group">
-              <label class="form-label">Lipasémie (UI/L)</label>
+              <label class="form-label">Bili Conj (µmol/L)</label>
+              <input type="number" id="hep-bili-conj" class="form-input" value="3">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lipase (UI/L)</label>
               <input type="number" id="hep-lipase" class="form-input" value="38">
             </div>
           </div>
@@ -525,23 +640,42 @@
         </div>
       </div>
 
+      <!-- D. Hémostase & Inflammation -->
       <div id="labs-sub-coag" class="subtab-panel" style="display: none;">
         <div class="card">
-          <div class="card-title">Hémostase, Coagulation & CRP</div>
-          <div class="form-row">
+          <div class="card-title">Hémostase, Coagulation & Inflammation</div>
+          <div class="form-row-3">
             <div class="form-group">
               <label class="form-label">CRP (mg/L)</label>
-              <input type="number" id="coag-crp" class="form-input" value="5">
+              <input type="number" step="0.1" id="coag-crp" class="form-input" value="5">
             </div>
+            <div class="form-group">
+              <label class="form-label">VS (mm/h)</label>
+              <input type="number" id="coag-vs" class="form-input" value="10">
+            </div>
+            <div class="form-group">
+              <label class="form-label">PCT (ng/mL)</label>
+              <input type="number" step="0.05" id="coag-pct" class="form-input" value="0.05">
+            </div>
+          </div>
+          <div class="form-row-3">
             <div class="form-group">
               <label class="form-label">TP (%)</label>
               <input type="number" id="coag-tp" class="form-input" value="98">
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group">
               <label class="form-label">INR</label>
               <input type="number" step="0.1" id="coag-inr" class="form-input" value="1.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ratio TCA</label>
+              <input type="number" step="0.1" id="coag-tca" class="form-input" value="1.0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Fibrinogène (g/L)</label>
+              <input type="number" step="0.1" id="coag-fib" class="form-input" value="3.0">
             </div>
             <div class="form-group">
               <label class="form-label">D-Dimères (ng/mL)</label>
@@ -553,41 +687,74 @@
         </div>
       </div>
 
-      <div id="labs-sub-glasgow" class="subtab-panel" style="display: none;">
+      <!-- E. Bandelette Urinaire & ECBU -->
+      <div id="labs-sub-urine" class="subtab-panel" style="display: none;">
         <div class="card">
-          <div class="card-title">Échelle de Coma de Glasgow (GCS)</div>
-          <div class="form-group">
-            <label class="form-label">Ouverture des yeux (E) :</label>
-            <select id="gcs-e" class="form-select">
-              <option value="4">4 — Spontanée</option>
-              <option value="3">3 — Au bruit / à la demande</option>
-              <option value="2">2 — À la douleur</option>
-              <option value="1">1 — Nulle</option>
-            </select>
+          <div class="card-title">Bandelette Urinaire (BU) & Orientation ECBU</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Leucocytes (Estérase)</label>
+              <select id="urine-leuco" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="Trace">Trace</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nitrites</label>
+              <select id="urine-nitrites" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="Positif">Positif</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Réponse verbale (V) :</label>
-            <select id="gcs-v" class="form-select">
-              <option value="5">5 — Orientée et appropriée</option>
-              <option value="4">4 — Confuse</option>
-              <option value="3">3 — Paroles inappropriées</option>
-              <option value="2">2 — Sons incompréhensibles</option>
-              <option value="1">1 — Nulle</option>
-            </select>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Protéinurie</label>
+              <select id="urine-prot" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="Trace">Trace</option>
+                <option value="1+ (0.3g)">1+ (0.3 g/L)</option>
+                <option value="2+ (1g)">2+ (1 g/L)</option>
+                <option value="3+ (3g)">3+ (3 g/L)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hématurie</label>
+              <select id="urine-hem" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="Trace">Trace</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Réponse motrice (M) :</label>
-            <select id="gcs-m" class="form-select">
-              <option value="6">6 — Obéit aux ordres</option>
-              <option value="5">5 — Orientée à la douleur</option>
-              <option value="4">4 — Retrait non adapté</option>
-              <option value="3">3 — Décortication (flexion)</option>
-              <option value="2">2 — Décérébration (extension)</option>
-              <option value="1">1 — Nulle</option>
-            </select>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Cétonurie</label>
+              <select id="urine-cet" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="Trace">Trace</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Glycosurie</label>
+              <select id="urine-glu" class="form-select">
+                <option value="Négatif">Négatif</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+              </select>
+            </div>
           </div>
-          <button class="btn-primary" onclick="calculateGlasgow()">Calculer le Score GCS</button>
-          <div id="gcs-result" style="display: none; margin-top: 14px;"></div>
+          <button class="btn-primary" onclick="calculateUrine()">Interpréter la Bandelette Urinaire</button>
+          <div id="urine-result" style="display: none; margin-top: 14px;"></div>
         </div>
       </div>
     </div>
@@ -598,13 +765,14 @@
   <!-- ══════════════════════════════════════════════════════════ -->
   <section id="tab-semiology" class="tab-content">
     <div class="module-top-banner">
-      <div class="module-banner-title">Sémiologie & Entraînement</div>
-      <div class="module-banner-sub">Encyclopédie sémiologique (14 rubriques) et QCM d'entraînement</div>
+      <div class="module-banner-title">Sémiologie, Cours & QCM</div>
+      <div class="module-banner-sub">Encyclopédie (14 rubriques), Cours universitaires & Banque de QCM</div>
     </div>
 
     <div class="module-tabs-bar">
-      <button class="module-tab-btn active" id="tab-btn-semiology-sheets" onclick="switchSubTab('semiology', 'sheets')">Bibliothèque Pédagogique</button>
-      <button class="module-tab-btn" id="tab-btn-semiology-quiz" onclick="switchSubTab('semiology', 'quiz')">Quiz QCM (0/90)</button>
+      <button class="module-tab-btn active" id="tab-btn-semiology-sheets" onclick="switchSubTab('semiology', 'sheets')">Fiches Sémiologie</button>
+      <button class="module-tab-btn" id="tab-btn-semiology-courses" onclick="switchSubTab('semiology', 'courses')">Cours Médicaux (31)</button>
+      <button class="module-tab-btn" id="tab-btn-semiology-quiz" onclick="switchSubTab('semiology', 'quiz')">Quiz QCM (90)</button>
     </div>
 
     <div class="disclaimer-banner">
@@ -613,30 +781,28 @@
     </div>
 
     <div class="content-body">
-      <!-- Search Input Matching Image 5 -->
+      <!-- Search Input -->
       <div class="form-group mb-3">
-        <input type="text" id="semiology-search-input" class="form-input" placeholder="🔍 Rechercher un signe ou syndrome clinique..." oninput="renderSheets()">
+        <input type="text" id="semiology-search-input" class="form-input" placeholder="🔍 Rechercher une fiche, un cours ou un syndrome clinique..." oninput="onSemiologySearch()">
       </div>
 
-      <!-- Filter Pills Matching Image 5 -->
-      <div class="pills-scroll">
-        <button class="pill-item active" id="pill-app-all" onclick="setApparatusFilter('all')">Tous les appareils</button>
-        <button class="pill-item" id="pill-app-cardio" onclick="setApparatusFilter('cardio')">Cardiovasculaire</button>
-        <button class="pill-item" id="pill-app-resp" onclick="setApparatusFilter('resp')">Respiratoire</button>
-        <button class="pill-item" id="pill-app-digestif" onclick="setApparatusFilter('digestif')">Digestif</button>
-        <button class="pill-item" id="pill-app-neuro" onclick="setApparatusFilter('neuro')">Neurologique</button>
-        <button class="pill-item" id="pill-app-urinaire" onclick="setApparatusFilter('urinaire')">Urinaire</button>
-        <button class="pill-item" id="pill-app-rhumatologie" onclick="setApparatusFilter('rhumatologie')">Rhumatologie</button>
-        <button class="pill-item" id="pill-app-dermatologie" onclick="setApparatusFilter('dermatologie')">Dermatologie</button>
-        <button class="pill-item" id="pill-app-general" onclick="setApparatusFilter('general')">Général</button>
-      </div>
+      <!-- Filter Pills (All 14 Specialties dynamically rendered) -->
+      <div class="pills-scroll" id="semiology-category-pills"></div>
 
-      <!-- Sous-onglet Fiches Médicales (Image 5) -->
+      <!-- Sous-onglet Fiches Sémiologiques -->
       <div id="semiology-sub-sheets" class="subtab-panel">
-        <div style="font-size: 14.5px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px;">
-          Encyclopédie Sémiologique (29 fiches complètes)
+        <div id="semiology-sheets-heading" style="font-size: 14.5px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px;">
+          Encyclopédie Sémiologique
         </div>
         <div id="semiology-sheets-list"></div>
+      </div>
+
+      <!-- Sous-onglet Cours Médicaux -->
+      <div id="semiology-sub-courses" class="subtab-panel" style="display: none;">
+        <div id="semiology-courses-heading" style="font-size: 14.5px; font-weight: 800; color: #F8FAFC; margin-bottom: 12px;">
+          Cours Médicaux Universitaires
+        </div>
+        <div id="semiology-courses-list"></div>
       </div>
 
       <!-- Sous-onglet Quiz QCM (90 Questions) -->
@@ -748,9 +914,22 @@
         <div style="font-size: 12.5px; color: var(--text-secondary); font-weight: 600;">Compagnon Clinique & Pédagogique</div>
       </div>
 
-      <!-- Configuration Étudiant -->
+      <!-- Configuration Étudiant + Photo Locale -->
       <div class="card mb-3">
         <div class="card-title">Profil de l'Étudiant Hospitalier</div>
+        <div class="profile-avatar-row">
+          <div class="profile-avatar-circle" id="prof-avatar-preview">👤</div>
+          <div style="flex: 1;">
+            <div style="font-size: 12.5px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary);">Photo du Profil (Stockée localement)</div>
+            <div class="photo-actions-row">
+              <button type="button" class="btn-secondary-sm" onclick="document.getElementById('prof-photo-gallery-input').click()">🖼️ Galerie</button>
+              <button type="button" class="btn-secondary-sm" onclick="document.getElementById('prof-photo-camera-input').click()">📷 Caméra</button>
+              <button type="button" class="btn-danger-sm" id="prof-photo-remove-btn" style="display: none;" onclick="removeProfilePhoto()">🗑️ Supprimer</button>
+            </div>
+            <input type="file" id="prof-photo-gallery-input" accept="image/*" style="display: none;" onchange="handleProfilePhotoUpload(this)">
+            <input type="file" id="prof-photo-camera-input" accept="image/*" capture="user" style="display: none;" onchange="handleProfilePhotoUpload(this)">
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Nom et Prénom :</label>
           <input type="text" id="prof-name" class="form-input" value="Étudiant en médecine">
@@ -837,16 +1016,44 @@
     </div>
   </div>
 
-  <!-- Modale Formation Clinique Pédagogique (14 Compétences) -->
+  <!-- Modale Formation Clinique Pédagogique (Sections 1 à 6) -->
   <div id="modal-clinical-training" class="modal-overlay">
-    <div class="modal-card" style="max-width: 650px;">
+    <div class="modal-card" style="max-width: 680px;">
       <button class="modal-close-btn" onclick="closeModal('modal-clinical-training')">✕</button>
       <div id="clinical-training-content"></div>
     </div>
   </div>
 
+  <!-- Modale Toutes les Fiches de Prévention (23 Fiches) -->
+  <div id="modal-all-preventions" class="modal-overlay">
+    <div class="modal-card" style="max-width: 650px;">
+      <button class="modal-close-btn" onclick="closeModal('modal-all-preventions')">✕</button>
+      <h2 style="font-size: 18px; font-weight: 900; color: #38BDF8; margin-bottom: 10px;">Bibliothèque Prévention & Vigilance</h2>
+      <div class="form-group">
+        <input type="text" id="prevention-search-input" class="form-input" placeholder="🔍 Rechercher une pathologie, vaccin ou dépistage..." oninput="renderAllPreventionsList()">
+      </div>
+      <div id="all-preventions-list"></div>
+    </div>
+  </div>
+
+  <!-- Modale Détail Cours Médical (14 rubriques + Tableaux + Cas) -->
+  <div id="modal-course-detail" class="modal-overlay">
+    <div class="modal-card" style="max-width: 680px;">
+      <button class="modal-close-btn" onclick="closeModal('modal-course-detail')">✕</button>
+      <div id="modal-course-content-body"></div>
+    </div>
+  </div>
+
+  <!-- Modale Dossier Patient Centralisé -->
+  <div id="modal-patient-dossier" class="modal-overlay">
+    <div class="modal-card" style="max-width: 660px;">
+      <button class="modal-close-btn" onclick="closeModal('modal-patient-dossier')">✕</button>
+      <div id="patient-dossier-body"></div>
+    </div>
+  </div>
+
   <!-- Scripts -->
-  <script src="medical_data.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="medical_data.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

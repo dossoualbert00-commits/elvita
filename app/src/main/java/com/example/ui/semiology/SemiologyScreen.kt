@@ -1,8 +1,10 @@
 package com.example.ui.semiology
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,19 +20,23 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -55,7 +61,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SemiologyCategory
+import com.example.data.model.SemiologyDataProvider
 import com.example.data.model.SemiologySheet
+import com.example.data.model.courses.CourseSummaryTable
+import com.example.data.model.courses.MedicalCourse
 import com.example.ui.components.LegalDisclaimerBanner
 import com.example.ui.theme.AlertGreen
 import com.example.ui.theme.AlertOrange
@@ -91,7 +100,7 @@ fun SemiologyScreen(
           color = Color.White
         )
         Text(
-          text = "Encyclopédie sémiologique (14 rubriques) et QCM d'entraînement",
+          text = "Fiches (14 rubriques), Cours universitaires & QCM",
           style = MaterialTheme.typography.bodySmall,
           color = Color.White.copy(alpha = 0.85f)
         )
@@ -109,23 +118,42 @@ fun SemiologyScreen(
           selectedTab = 0
           viewModel.selectSheet(null)
         },
-        text = { Text("Bibliothèque Pédagogique", fontWeight = FontWeight.SemiBold) }
+        text = { Text("Fiches (${state.sheets.size})", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
       )
       Tab(
         selected = selectedTab == 1,
-        onClick = { selectedTab = 1 },
-        text = { Text("Quiz QCM (${state.score}/${state.quizQuestions.size})", fontWeight = FontWeight.SemiBold) }
+        onClick = {
+          selectedTab = 1
+          viewModel.selectCourse(null)
+        },
+        modifier = Modifier.testTag("tab_medical_courses"),
+        text = { Text("Cours (${state.courses.size})", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+      )
+      Tab(
+        selected = selectedTab == 2,
+        onClick = { selectedTab = 2 },
+        text = { Text("Quiz (${state.score}/${state.quizQuestions.size})", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
       )
     }
 
-    if (selectedTab == 0) {
-      if (state.selectedSheet != null) {
-        SemiologyDetailView(sheet = state.selectedSheet!!, onBack = { viewModel.selectSheet(null) })
-      } else {
-        SemiologyListView(viewModel = viewModel, state = state)
+    when (selectedTab) {
+      0 -> {
+        if (state.selectedSheet != null) {
+          BackHandler { viewModel.selectSheet(null) }
+          SemiologyDetailView(sheet = state.selectedSheet!!, onBack = { viewModel.selectSheet(null) })
+        } else {
+          SemiologyListView(viewModel = viewModel, state = state)
+        }
       }
-    } else {
-      QuizSectionView(viewModel = viewModel, state = state)
+      1 -> {
+        if (state.selectedCourse != null) {
+          BackHandler { viewModel.selectCourse(null) }
+          MedicalCourseDetailView(course = state.selectedCourse!!, onBack = { viewModel.selectCourse(null) })
+        } else {
+          MedicalCoursesListView(viewModel = viewModel, state = state)
+        }
+      }
+      else -> QuizSectionView(viewModel = viewModel, state = state)
     }
   }
 }
@@ -450,11 +478,363 @@ fun SectionTitle(text: String) {
   )
 }
 
+@Composable
+fun MedicalCoursesListView(viewModel: SemiologyViewModel, state: SemiologyUiState) {
+  val filteredCourses = viewModel.getFilteredCourses()
+  val availableSpecialties = remember(state.courses) {
+    SemiologyCategory.entries.filter { cat -> state.courses.any { it.specialty == cat } }
+  }
+
+  LazyColumn(
+    modifier = Modifier.fillMaxSize(),
+    contentPadding = PaddingValues(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp)
+  ) {
+    item { LegalDisclaimerBanner() }
+
+    item {
+      OutlinedTextField(
+        value = state.courseSearchQuery,
+        onValueChange = { viewModel.updateCourseSearchQuery(it) },
+        placeholder = { Text("Rechercher un cours médical (ex: Embolie, Asthme, SCA, Paludisme...)") },
+        leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
+        modifier = Modifier.fillMaxWidth().testTag("courses_search_input"),
+        shape = RoundedCornerShape(12.dp),
+        singleLine = true
+      )
+    }
+
+    item {
+      LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+          val isAll = state.selectedCourseSpecialty == null
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(20.dp))
+              .background(if (isAll) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+              .border(1.dp, if (isAll) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+              .clickable { viewModel.selectCourseSpecialty(null) }
+              .padding(horizontal = 14.dp, vertical = 6.dp)
+          ) {
+            Text(
+              text = "Tous les cours (${state.courses.size})",
+              style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+              color = if (isAll) Color.White else MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+        items(availableSpecialties) { cat ->
+          val isSelected = state.selectedCourseSpecialty == cat
+          val count = state.courses.count { it.specialty == cat }
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(20.dp))
+              .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+              .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
+              .clickable { viewModel.selectCourseSpecialty(cat) }
+              .padding(horizontal = 14.dp, vertical = 6.dp)
+          ) {
+            Text(
+              text = "${cat.label} ($count)",
+              style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+              color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+      }
+    }
+
+    item {
+      Text(
+        text = "Cours Médicaux Universitaires (${filteredCourses.size} cours complets — 14 rubriques)",
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.onBackground
+      )
+    }
+
+    items(filteredCourses) { course ->
+      Card(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { viewModel.selectCourse(course) }
+          .testTag("course_card_${course.id}"),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+      ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+              Text(
+                text = course.specialty.label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+              )
+            }
+            Text(
+              text = if (course.summaryTables.isNotEmpty()) "${course.summaryTables.size} tableau(x) + Cas" else "14 rubriques + Cas",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.secondary
+            )
+          }
+          Spacer(modifier = Modifier.height(8.dp))
+          Text(
+            text = course.title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.height(3.dp))
+          Text(
+            text = course.subtitle,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MedicalBlue
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = course.definition,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun MedicalCourseDetailView(course: MedicalCourse, onBack: () -> Unit) {
+  LazyColumn(
+    modifier = Modifier.fillMaxSize(),
+    contentPadding = PaddingValues(16.dp),
+    verticalArrangement = Arrangement.spacedBy(14.dp)
+  ) {
+    item {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        IconButton(onClick = onBack, modifier = Modifier.testTag("btn_back_course_detail")) {
+          Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour aux cours")
+        }
+        Column {
+          Text(
+            text = "Cours Médical Universitaire",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+          )
+          Text(
+            text = "${course.academicLevel} • 14 rubriques structurées",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      }
+    }
+
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+      ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+              Text(
+                text = course.specialty.label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+              )
+            }
+            Icon(imageVector = Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+          }
+
+          Text(
+            text = course.title,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Text(
+            text = course.subtitle,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MedicalBlue
+          )
+
+          SectionTitle("1. Définition")
+          Text(text = course.definition, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("2. Épidémiologie")
+          Text(text = course.epidemiology, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("3. Étiologies & Facteurs de Risque")
+          course.etiologiesAndRiskFactors.forEach { BulletItem(text = it) }
+
+          SectionTitle("4. Physiopathologie")
+          Text(text = course.physiopathology, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("5. Anatomopathologie & Classification")
+          Text(text = course.classificationAndPathology, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("6. Clinique (Signes Fonctionnels et Physiques)")
+          Text(text = course.clinicalSigns, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("7. Examens Paracliniques")
+          course.paraclinicalExams.forEach { BulletItem(text = it) }
+
+          SectionTitle("8. Critères Diagnostiques")
+          course.diagnosticCriteria.forEach { BulletItem(text = it) }
+
+          SectionTitle("9. Formes Cliniques")
+          course.clinicalForms.forEach { BulletItem(text = it) }
+
+          SectionTitle("10. Évolution, Complications & Pronostic")
+          Text(text = course.evolutionAndPrognosis, style = MaterialTheme.typography.bodyMedium)
+
+          SectionTitle("11. Principes de Prise en Charge (Hors prescription directe)")
+          course.managementPrinciples.forEach { BulletItem(text = it) }
+
+          SectionTitle("12. Diagnostics Différentiels")
+          course.differentialDiagnoses.forEach { BulletItem(text = it) }
+
+          if (course.summaryTables.isNotEmpty()) {
+            SectionTitle("Tableaux Synthétiques de Référence")
+            course.summaryTables.forEach { table ->
+              CourseSummaryTableCard(table = table)
+            }
+          }
+
+          SectionTitle("13. Cas Clinique Pédagogique (Cas Fictif Pédagogique)")
+          Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MedicalBlue.copy(alpha = 0.08f))
+          ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Text(
+                text = course.clinicalCaseTitle,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MedicalBlue
+              )
+              Text(text = course.clinicalCaseScenario, style = MaterialTheme.typography.bodyMedium)
+              HorizontalDivider(color = MedicalBlue.copy(alpha = 0.25f))
+              Text(
+                text = "Correction & Raisonnement :",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = MedicalTeal
+              )
+              Text(text = course.clinicalCaseCorrection, style = MaterialTheme.typography.bodyMedium)
+            }
+          }
+
+          SectionTitle("14. Points Clés à Retenir")
+          course.keyPoints.forEach { kp ->
+            Row(modifier = Modifier.padding(start = 4.dp), verticalAlignment = Alignment.Top) {
+              Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = AlertGreen,
+                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = kp,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun CourseSummaryTableCard(table: CourseSummaryTable) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+  ) {
+    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+          text = table.title,
+          style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+          color = MaterialTheme.colorScheme.primary
+        )
+      }
+      Column(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        // Header row
+        Row(
+          modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+            .padding(vertical = 6.dp, horizontal = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+          table.headers.forEach { header ->
+            Text(
+              text = header,
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+              color = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.width(135.dp)
+            )
+          }
+        }
+        table.rows.forEachIndexed { idx, row ->
+          Row(
+            modifier = Modifier
+              .background(if (idx % 2 == 0) Color.Transparent else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+              .padding(vertical = 6.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            row.forEach { cell ->
+              Text(
+                text = cell,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.width(135.dp)
+              )
+            }
+          }
+          HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+        }
+      }
+    }
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // QUIZ & QCM SECTION
 // ══════════════════════════════════════════════════════
 @Composable
 fun QuizSectionView(viewModel: SemiologyViewModel, state: SemiologyUiState) {
+  val allQuestions = remember { SemiologyDataProvider.quizQuestions }
+  val quizCategories = remember(allQuestions) {
+    SemiologyCategory.entries.filter { cat -> allQuestions.any { it.category == cat } }
+  }
+
   Column(modifier = Modifier.fillMaxSize()) {
     // Category selector for quiz
     LazyRow(
@@ -472,18 +852,15 @@ fun QuizSectionView(viewModel: SemiologyViewModel, state: SemiologyUiState) {
             .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
           Text(
-            text = "Tous les QCM (90)",
+            text = "Tous les QCM (${allQuestions.size})",
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
             color = if (isAll) Color.White else MaterialTheme.colorScheme.onSurface
           )
         }
       }
-      items(SemiologyCategory.entries.toTypedArray()) { cat ->
+      items(quizCategories) { cat ->
         val isSelected = state.quizCategory == cat
-        val count = when (cat) {
-          SemiologyCategory.CARDIOVASCULAR -> 20
-          else -> 10
-        }
+        val count = allQuestions.count { it.category == cat }
         Box(
           modifier = Modifier
             .clip(RoundedCornerShape(20.dp))

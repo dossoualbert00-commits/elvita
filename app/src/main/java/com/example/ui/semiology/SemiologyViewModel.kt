@@ -5,6 +5,8 @@ import com.example.data.model.QuizQuestion
 import com.example.data.model.SemiologyCategory
 import com.example.data.model.SemiologyDataProvider
 import com.example.data.model.SemiologySheet
+import com.example.data.model.courses.MedicalCourse
+import com.example.data.model.courses.MedicalCoursesProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +16,11 @@ data class SemiologyUiState(
   val selectedCategory: SemiologyCategory? = null,
   val selectedSheet: SemiologySheet? = null,
   val searchQuery: String = "",
+  // Medical courses state
+  val courses: List<MedicalCourse> = MedicalCoursesProvider.courses,
+  val selectedCourseSpecialty: SemiologyCategory? = null,
+  val selectedCourse: MedicalCourse? = null,
+  val courseSearchQuery: String = "",
   // Quiz state
   val quizCategory: SemiologyCategory? = null,
   val quizQuestions: List<QuizQuestion> = SemiologyDataProvider.quizQuestions,
@@ -54,6 +61,34 @@ class SemiologyViewModel : ViewModel() {
         sheet.definition.contains(s.searchQuery, ignoreCase = true) ||
         sheet.clinicalSignificance.contains(s.searchQuery, ignoreCase = true)
       matchCategory && matchQuery
+    }
+  }
+
+  fun selectCourseSpecialty(specialty: SemiologyCategory?) {
+    _state.value = _state.value.copy(
+      selectedCourseSpecialty = specialty,
+      selectedCourse = null
+    )
+  }
+
+  fun selectCourse(course: MedicalCourse?) {
+    _state.value = _state.value.copy(selectedCourse = course)
+  }
+
+  fun updateCourseSearchQuery(query: String) {
+    _state.value = _state.value.copy(courseSearchQuery = query)
+  }
+
+  fun getFilteredCourses(): List<MedicalCourse> {
+    val s = _state.value
+    return s.courses.filter { course ->
+      val matchSpecialty = s.selectedCourseSpecialty == null || course.specialty == s.selectedCourseSpecialty
+      val matchQuery = s.courseSearchQuery.isBlank() ||
+        course.title.contains(s.courseSearchQuery, ignoreCase = true) ||
+        course.subtitle.contains(s.courseSearchQuery, ignoreCase = true) ||
+        course.definition.contains(s.courseSearchQuery, ignoreCase = true) ||
+        course.clinicalSigns.contains(s.courseSearchQuery, ignoreCase = true)
+      matchSpecialty && matchQuery
     }
   }
 

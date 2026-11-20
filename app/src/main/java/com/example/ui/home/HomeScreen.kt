@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -45,6 +47,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,6 +72,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.data.model.PreventionTopic
 import com.example.ui.components.AlertLevelChip
 import com.example.ui.components.LegalDisclaimerBanner
 import com.example.ui.theme.AlertGreen
@@ -91,12 +95,25 @@ fun HomeScreen(
 ) {
   val state by viewModel.uiState.collectAsState()
   var selectedPreventionTopic by remember { mutableStateOf<PreventionTopic?>(null) }
+  var showPreventionLibrary by remember { mutableStateOf(false) }
 
   if (selectedPreventionTopic != null) {
     BackHandler { selectedPreventionTopic = null }
     PreventionDetailDialog(
       topic = selectedPreventionTopic!!,
       onDismiss = { selectedPreventionTopic = null }
+    )
+  }
+
+  if (showPreventionLibrary && selectedPreventionTopic == null) {
+    BackHandler { showPreventionLibrary = false }
+    PreventionLibraryDialog(
+      topics = viewModel.preventionTopics,
+      onSelectTopic = { topic ->
+        showPreventionLibrary = false
+        selectedPreventionTopic = topic
+      },
+      onDismiss = { showPreventionLibrary = false }
     )
   }
 
@@ -246,12 +263,18 @@ fun HomeScreen(
           Text(
             text = "A. Prévention Médicale & Vigilance",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f)
           )
           Text(
-            text = "6 Fiches Repères",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary
+            text = "${viewModel.preventionTopics.size} Fiches Repères →",
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .clickable { showPreventionLibrary = true }
+              .padding(horizontal = 6.dp, vertical = 4.dp)
+              .testTag("prevention_library_btn")
           )
         }
 
@@ -284,7 +307,7 @@ fun HomeScreen(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
           QuickActionCard(
             title = "Mesures",
-            subtitle = "Saisie constantes",
+            subtitle = "Constantes & Glasgow",
             icon = Icons.Default.Timeline,
             color = MedicalBlue,
             onClick = { onNavigateToTab(2) }, // Tab Mesures
@@ -313,7 +336,7 @@ fun HomeScreen(
           )
           QuickActionCard(
             title = "Analyses",
-            subtitle = "NFS, UECréat, Glasgow",
+            subtitle = "NFS, UECréat, Foie, Urines",
             icon = Icons.Default.Biotech,
             color = Color(0xFF0EA5E9),
             onClick = { onNavigateToTab(3) }, // Tab Analyses
@@ -677,39 +700,89 @@ fun PreventionDetailDialog(
             }
           }
 
-          // Points clés détaillés
+          // 1. Définition
           item {
-            Text(
-              text = "Points Clés de Prévention & Recommandations :",
-              style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-              color = MaterialTheme.colorScheme.onSurface
+            PreventionSectionCard(
+              title = "1. Définition",
+              body = topic.definition,
+              accentColor = MaterialTheme.colorScheme.primary
             )
           }
 
-          items(topic.keyPoints) { point ->
+          // 2. Facteurs de risque
+          item {
+            PreventionBulletSectionCard(
+              title = "2. Facteurs de Risque",
+              items = topic.riskFactors,
+              accentColor = AlertOrange
+            )
+          }
+
+          // 3. Population concernée (âge / sexe / contexte)
+          item {
+            PreventionSectionCard(
+              title = "3. Population Concernée (Âge, Sexe & Contexte)",
+              body = topic.targetPopulation,
+              accentColor = MedicalTeal
+            )
+          }
+
+          // 4. Prévention primaire
+          item {
+            PreventionBulletSectionCard(
+              title = "4. Prévention Primaire",
+              items = topic.preventionMeasures,
+              accentColor = AlertGreen
+            )
+          }
+
+          // 5. Dépistage recommandé
+          item {
+            PreventionSectionCard(
+              title = "5. Dépistage Recommandé",
+              body = topic.screeningRecommendations,
+              accentColor = MedicalBlue
+            )
+          }
+
+          // 6. Recommandations pratiques & Points clés
+          item {
+            PreventionBulletSectionCard(
+              title = "6. Recommandations Pratiques & Points Clés",
+              items = topic.practicalAdvice + topic.keyPoints,
+              accentColor = AlertGreen
+            )
+          }
+
+          // 7. Signes d'alerte
+          item {
             Card(
-              shape = RoundedCornerShape(10.dp),
-              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+              shape = RoundedCornerShape(12.dp),
+              colors = CardDefaults.cardColors(containerColor = AlertRed.copy(alpha = 0.08f)),
+              border = androidx.compose.foundation.BorderStroke(1.dp, AlertRed.copy(alpha = 0.35f)),
               modifier = Modifier.fillMaxWidth()
             ) {
-              Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.Top
-              ) {
-                Icon(
-                  imageVector = Icons.Default.CheckCircle,
-                  contentDescription = null,
-                  tint = AlertGreen,
-                  modifier = Modifier
-                    .size(18.dp)
-                    .padding(top = 2.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+              Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                  text = point,
-                  style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 21.sp),
-                  color = MaterialTheme.colorScheme.onSurface
+                  text = "7. Signes d'Alerte & Drapeaux Rouges",
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = AlertRed)
                 )
+                topic.warningSigns.forEach { sign ->
+                  Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                      imageVector = Icons.Default.Warning,
+                      contentDescription = null,
+                      tint = AlertRed,
+                      modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                      text = sign,
+                      style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 19.sp),
+                      color = MaterialTheme.colorScheme.onSurface
+                    )
+                  }
+                }
               }
             }
           }
@@ -767,6 +840,232 @@ fun PreventionDetailDialog(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
           ) {
             Text("Fermer la fiche", fontWeight = FontWeight.Bold)
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun PreventionSectionCard(
+  title: String,
+  body: String,
+  accentColor: Color
+) {
+  Card(
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = accentColor)
+      )
+      Text(
+        text = body,
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 20.sp),
+        color = MaterialTheme.colorScheme.onSurface
+      )
+    }
+  }
+}
+
+@Composable
+private fun PreventionBulletSectionCard(
+  title: String,
+  items: List<String>,
+  accentColor: Color
+) {
+  Card(
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = accentColor)
+      )
+      items.distinct().forEach { item ->
+        Row(verticalAlignment = Alignment.Top) {
+          Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = accentColor,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp)
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = item,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 19.sp),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun PreventionLibraryDialog(
+  topics: List<PreventionTopic>,
+  onSelectTopic: (PreventionTopic) -> Unit,
+  onDismiss: () -> Unit
+) {
+  var searchQuery by remember { mutableStateOf("") }
+  var selectedTag by remember { mutableStateOf<String?>(null) }
+  val allTags = remember(topics) { topics.map { it.tag }.distinct() }
+  val filtered = remember(topics, searchQuery, selectedTag) {
+    topics.filter { topic ->
+      val matchesTag = selectedTag == null || topic.tag == selectedTag
+      val matchesSearch = searchQuery.isBlank() ||
+        topic.title.contains(searchQuery, ignoreCase = true) ||
+        topic.subtitle.contains(searchQuery, ignoreCase = true) ||
+        topic.definition.contains(searchQuery, ignoreCase = true) ||
+        topic.tag.contains(searchQuery, ignoreCase = true)
+      matchesTag && matchesSearch
+    }
+  }
+
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(usePlatformDefaultWidth = false)
+  ) {
+    Card(
+      modifier = Modifier
+        .fillMaxWidth(0.95f)
+        .fillMaxHeight(0.90f)
+        .testTag("prevention_library_modal"),
+      shape = RoundedCornerShape(20.dp),
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+      Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.Shield,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+              Text(
+                text = "Prévention Médicale (${topics.size} fiches)",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+              )
+              Text(
+                text = "Dépistage, santé publique & vigilance clinique",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+          }
+          IconButton(onClick = onDismiss) {
+            Icon(imageVector = Icons.Default.Close, contentDescription = "Fermer")
+          }
+        }
+
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+          OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Rechercher un thème de prévention...") },
+            leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth().testTag("prevention_search_input"),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+              val isAll = selectedTag == null
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(16.dp))
+                  .background(if (isAll) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                  .clickable { selectedTag = null }
+                  .padding(horizontal = 12.dp, vertical = 6.dp)
+              ) {
+                Text(
+                  text = "Tous (${topics.size})",
+                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                  color = if (isAll) Color.White else MaterialTheme.colorScheme.onSurface
+                )
+              }
+            }
+            items(allTags) { tag ->
+              val isSelected = selectedTag == tag
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(16.dp))
+                  .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                  .clickable { selectedTag = tag }
+                  .padding(horizontal = 12.dp, vertical = 6.dp)
+              ) {
+                Text(
+                  text = tag,
+                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                  color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                )
+              }
+            }
+          }
+        }
+
+        LazyColumn(
+          modifier = Modifier.weight(1f),
+          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+          verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          items(filtered, key = { it.id }) { topic ->
+            Card(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onSelectTopic(topic) }
+                .testTag("prevention_library_item_${topic.id}"),
+              shape = RoundedCornerShape(12.dp),
+              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            ) {
+              Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text(
+                    text = topic.tag,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MedicalBlue)
+                  )
+                  Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                  )
+                }
+                Text(
+                  text = topic.title,
+                  style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                  text = topic.subtitle,
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
           }
         }
       }

@@ -71,6 +71,7 @@ import com.example.ui.theme.MedicalTeal
 fun PatientsScreen(
   viewModel: PatientsViewModel,
   onNavigateToNewVitalForPatient: (Long) -> Unit,
+  onNavigateToNewGlasgowForPatient: (Long) -> Unit = {},
   onNavigateToNewObservationForPatient: (Long) -> Unit,
   onNavigateToNewUpdateForPatient: (Long) -> Unit,
   onBack: () -> Unit,
@@ -97,6 +98,7 @@ fun PatientsScreen(
         }
       },
       onAddVital = { onNavigateToNewVitalForPatient(selectedId!!) },
+      onAddGlasgow = { onNavigateToNewGlasgowForPatient(selectedId!!) },
       onAddObservation = { onNavigateToNewObservationForPatient(selectedId!!) },
       onAddUpdate = { onNavigateToNewUpdateForPatient(selectedId!!) }
     )
@@ -287,6 +289,7 @@ fun PatientDetailScreen(
   onBack: () -> Unit,
   onDelete: () -> Unit,
   onAddVital: () -> Unit,
+  onAddGlasgow: () -> Unit = {},
   onAddObservation: () -> Unit,
   onAddUpdate: () -> Unit
 ) {
@@ -358,23 +361,33 @@ fun PatientDetailScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         // Quick action row
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           OutlinedButton(
             onClick = onAddVital,
             modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
           ) {
-            Icon(imageVector = Icons.Default.Timeline, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
+            Icon(imageVector = Icons.Default.Timeline, contentDescription = null, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(3.dp))
             Text("+ Constante", fontSize = 11.sp)
+          }
+          OutlinedButton(
+            onClick = onAddGlasgow,
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+          ) {
+            Text("+ Glasgow", fontSize = 11.sp)
           }
           OutlinedButton(
             onClick = onAddUpdate,
             modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
           ) {
-            Icon(imageVector = Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
+            Icon(imageVector = Icons.Default.Update, contentDescription = null, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(3.dp))
             Text("+ Visite", fontSize = 11.sp)
           }
         }
@@ -391,7 +404,8 @@ fun PatientDetailScreen(
       Tab(selected = detailSubTab == 0, onClick = { detailSubTab = 0 }, text = { Text("Observation (${detailState.observations.size})") })
       Tab(selected = detailSubTab == 1, onClick = { detailSubTab = 1 }, text = { Text("Visites Quotidiennes (${detailState.updates.size})") })
       Tab(selected = detailSubTab == 2, onClick = { detailSubTab = 2 }, text = { Text("Constantes (${detailState.vitals.size})") })
-      Tab(selected = detailSubTab == 3, onClick = { detailSubTab = 3 }, text = { Text("Analyses (${detailState.labResults.size})") })
+      Tab(selected = detailSubTab == 3, onClick = { detailSubTab = 3 }, text = { Text("Glasgow (${detailState.glasgowEvaluations.size})") })
+      Tab(selected = detailSubTab == 4, onClick = { detailSubTab = 4 }, text = { Text("Analyses (${detailState.labResults.size})") })
     }
 
     LazyColumn(
@@ -488,6 +502,41 @@ fun PatientDetailScreen(
           }
         }
         3 -> {
+          // Glasgow Evaluations
+          if (detailState.glasgowEvaluations.isEmpty()) {
+            item {
+              Text("Aucun score de Glasgow enregistré pour ce patient.", style = MaterialTheme.typography.bodyMedium)
+              Spacer(modifier = Modifier.height(10.dp))
+              Button(onClick = onAddGlasgow) {
+                Text("Évaluer le Score de Glasgow")
+              }
+            }
+          } else {
+            items(detailState.glasgowEvaluations) { g ->
+              Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+              ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                  ) {
+                    Text(text = g.formattedDateTime, style = MaterialTheme.typography.labelSmall)
+                    AlertLevelChip(alertLevel = g.alertLevel)
+                  }
+                  Text(
+                    text = "Score de Glasgow : ${g.totalScore}/15 (Y${g.eyeOpening} V${g.verbalResponse} M${g.motorResponse})",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                  )
+                  Text(text = g.interpretationText, style = MaterialTheme.typography.bodySmall)
+                }
+              }
+            }
+          }
+        }
+        4 -> {
           // Lab results
           if (detailState.labResults.isEmpty()) {
             item {
@@ -504,8 +553,16 @@ fun PatientDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                   ) {
-                    Text(text = lab.summaryTitle, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                      text = lab.summaryTitle,
+                      style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                      modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     AlertLevelChip(alertLevel = lab.alertLevel)
+                  }
+                  if (lab.date.isNotBlank()) {
+                    Text(text = "${lab.testType} • ${lab.date}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                   }
                   Spacer(modifier = Modifier.height(4.dp))
                   Text(text = lab.interpretationText, style = MaterialTheme.typography.bodySmall)

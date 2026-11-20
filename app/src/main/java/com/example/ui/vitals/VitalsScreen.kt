@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.entities.GlasgowEvaluationEntity
 import com.example.data.local.entities.VitalEntity
 import com.example.ui.components.AlertLevelChip
 import com.example.ui.components.LegalDisclaimerBanner
@@ -79,7 +81,7 @@ fun VitalsScreen(
 ) {
   val context = LocalContext.current
   val state by viewModel.state.collectAsState()
-  var selectedTab by remember { mutableIntStateOf(initialTab) }
+  var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
 
   Column(
     modifier = modifier
@@ -95,19 +97,19 @@ fun VitalsScreen(
     ) {
       Column {
         Text(
-          text = "Constantes & Paramètres Vitaux",
+          text = "Mesures, Constantes & Glasgow",
           style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
           color = Color.White
         )
         Text(
-          text = "Saisie, interprétation clinique et courbes d'évolution",
+          text = "Constantes vitales, Score de Glasgow et courbes d'évolution",
           style = MaterialTheme.typography.bodySmall,
           color = Color.White.copy(alpha = 0.8f)
         )
       }
     }
 
-    // Top Tabs: Saisie vs Historique
+    // Top Tabs: Constantes | Score de Glasgow | Historique & Courbes
     TabRow(
       selectedTabIndex = selectedTab,
       containerColor = MaterialTheme.colorScheme.surface,
@@ -116,12 +118,18 @@ fun VitalsScreen(
       Tab(
         selected = selectedTab == 0,
         onClick = { selectedTab = 0 },
-        text = { Text("Saisie des Constantes", fontWeight = FontWeight.SemiBold) }
+        text = { Text("Constantes", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) }
       )
       Tab(
         selected = selectedTab == 1,
         onClick = { selectedTab = 1 },
-        text = { Text("Historique & Courbes", fontWeight = FontWeight.SemiBold) }
+        text = { Text("Score de Glasgow", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+        modifier = Modifier.testTag("tab_glasgow_in_mesures")
+      )
+      Tab(
+        selected = selectedTab == 2,
+        onClick = { selectedTab = 2 },
+        text = { Text("Historique & Courbes", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) }
       )
     }
 
@@ -489,7 +497,7 @@ fun VitalsScreen(
             onClick = {
               viewModel.saveVitals {
                 Toast.makeText(context, "Constantes enregistrées avec succès !", Toast.LENGTH_SHORT).show()
-                selectedTab = 1 // Switch to History
+                selectedTab = 2 // Switch to History
               }
             },
             modifier = Modifier
@@ -509,6 +517,11 @@ fun VitalsScreen(
           }
         }
       }
+    } else if (selectedTab == 1) {
+      // ══════════════════════════════════════════════════════
+      // MODULE SCORE DE GLASGOW (SOUS-MODULE INDÉPENDANT)
+      // ══════════════════════════════════════════════════════
+      GlasgowSubModuleSection(viewModel = viewModel, state = state)
     } else {
       // ══════════════════════════════════════════════════════
       // MODULE HISTORIQUE : COURBES DISTINCTES & LISTE DÉTAILLÉE
@@ -747,6 +760,449 @@ fun VitalHistoryItem(
           color = MaterialTheme.colorScheme.onSurfaceVariant
         )
       }
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GlasgowSubModuleSection(
+  viewModel: VitalsViewModel,
+  state: VitalsUiState
+) {
+  val context = LocalContext.current
+  val total = state.glasgowEyeScore + state.glasgowVerbalScore + state.glasgowMotorScore
+  val selectedPatient = state.patients.find { it.id == state.selectedGlasgowPatientId }
+  val historyList = viewModel.getFilteredGlasgowEvaluations()
+
+  LazyColumn(
+    modifier = Modifier.fillMaxSize(),
+    contentPadding = PaddingValues(16.dp),
+    verticalArrangement = Arrangement.spacedBy(14.dp)
+  ) {
+    item { LegalDisclaimerBanner() }
+
+    // Mandatory Patient Selector
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = if (selectedPatient == null) {
+          androidx.compose.foundation.BorderStroke(1.2.dp, AlertOrange)
+        } else null
+      ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text(
+            text = "Dossier patient associé (Obligatoire pour enregistrer)",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (selectedPatient == null) AlertOrange else MaterialTheme.colorScheme.primary
+          )
+
+          var expanded by remember { mutableStateOf(false) }
+          ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+          ) {
+            OutlinedTextField(
+              value = selectedPatient?.let { "${it.fullNameOrAlias} (${it.department})" }
+                ?: "Sélectionner un dossier patient...",
+              onValueChange = {},
+              readOnly = true,
+              trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+              modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .testTag("glasgow_patient_selector"),
+              shape = RoundedCornerShape(10.dp)
+            )
+            ExposedDropdownMenu(
+              expanded = expanded,
+              onDismissRequest = { expanded = false }
+            ) {
+              if (state.patients.isEmpty()) {
+                DropdownMenuItem(
+                  text = { Text("Aucun dossier patient disponible — Créez-en un dans Dossiers") },
+                  onClick = { expanded = false }
+                )
+              } else {
+                state.patients.forEach { patient ->
+                  DropdownMenuItem(
+                    text = { Text("${patient.fullNameOrAlias} — ${patient.department} (${patient.roomNumber})") },
+                    onClick = {
+                      viewModel.onGlasgowPatientSelected(patient.id)
+                      expanded = false
+                    }
+                  )
+                }
+              }
+            }
+          }
+
+          if (selectedPatient == null) {
+            Text(
+              text = "Veuillez sélectionner un dossier patient avant d'enregistrer le score de Glasgow.",
+              style = MaterialTheme.typography.bodySmall,
+              color = AlertOrange
+            )
+          }
+        }
+      }
+    }
+
+    // Score Summary Banner Card
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+          containerColor = when {
+            total <= 8 -> AlertRed.copy(alpha = 0.12f)
+            total <= 12 -> AlertOrange.copy(alpha = 0.12f)
+            else -> AlertGreen.copy(alpha = 0.12f)
+          }
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+          2.dp,
+          when {
+            total <= 8 -> AlertRed
+            total <= 12 -> AlertOrange
+            else -> AlertGreen
+          }
+        )
+      ) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(18.dp),
+          horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+          Text(
+            text = "Score de Glasgow Total (GCS)",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.height(6.dp))
+          Text(
+            text = "$total / 15",
+            style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black),
+            color = when {
+              total <= 8 -> AlertRed
+              total <= 12 -> AlertOrange
+              else -> AlertGreen
+            },
+            modifier = Modifier.testTag("glasgow_total_score")
+          )
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = "Composantes : E${state.glasgowEyeScore} V${state.glasgowVerbalScore} M${state.glasgowMotorScore}",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+
+          if (total <= 8) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(AlertRed)
+                .padding(10.dp),
+              contentAlignment = Alignment.Center
+            ) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = "COMA SÉVÈRE (GCS <= 8) : Alerte neurologique majeure, protection des voies aériennes à discuter en urgence.",
+                  color = Color.White,
+                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 1. Eye Opening
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+      ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+          Text(
+            text = "1. Ouverture des Yeux : Y / E (${state.glasgowEyeScore} / 4)",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          listOf(
+            4 to "4 - Spontanée",
+            3 to "3 - À la stimulation verbale",
+            2 to "2 - À la stimulation douloureuse",
+            1 to "1 - Aucune"
+          ).forEach { (score, label) ->
+            GlasgowSelectOption(
+              selected = state.glasgowEyeScore == score,
+              label = label,
+              onClick = { viewModel.setGlasgowEye(score) }
+            )
+          }
+        }
+      }
+    }
+
+    // 2. Verbal Response
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+      ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+          Text(
+            text = "2. Réponse Verbale : V (${state.glasgowVerbalScore} / 5)",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          listOf(
+            5 to "5 - Orientée",
+            4 to "4 - Confuse",
+            3 to "3 - Mots inappropriés",
+            2 to "2 - Sons incompréhensibles",
+            1 to "1 - Aucune"
+          ).forEach { (score, label) ->
+            GlasgowSelectOption(
+              selected = state.glasgowVerbalScore == score,
+              label = label,
+              onClick = { viewModel.setGlasgowVerbal(score) }
+            )
+          }
+        }
+      }
+    }
+
+    // 3. Motor Response
+    item {
+      Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+      ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+          Text(
+            text = "3. Réponse Motrice : M (${state.glasgowMotorScore} / 6)",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          listOf(
+            6 to "6 - Obéit aux ordres",
+            5 to "5 - Localise la douleur",
+            4 to "4 - Retrait / Évitement normal",
+            3 to "3 - Flexion anormale (Décortication)",
+            2 to "2 - Extension anormale (Décérébration)",
+            1 to "1 - Aucune"
+          ).forEach { (score, label) ->
+            GlasgowSelectOption(
+              selected = state.glasgowMotorScore == score,
+              label = label,
+              onClick = { viewModel.setGlasgowMotor(score) }
+            )
+          }
+        }
+      }
+    }
+
+    // Pedagogical Interpretation + Save Button
+    state.glasgowInterpretation?.let { interp ->
+      item {
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(
+                text = interp.title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.weight(1f)
+              )
+              AlertLevelChip(alertLevel = interp.alertLevel)
+            }
+            Text(
+              text = interp.summary,
+              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+              color = MaterialTheme.colorScheme.primary
+            )
+            interp.details.forEach { d ->
+              Text(text = "• $d", style = MaterialTheme.typography.bodySmall)
+            }
+            if (interp.clinicalPearls.isNotEmpty()) {
+              Text(
+                text = "Repères cliniques :",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MedicalTeal)
+              )
+              interp.clinicalPearls.forEach { p ->
+                Text(text = "• $p", style = MaterialTheme.typography.bodySmall)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    item {
+      Button(
+        onClick = {
+          viewModel.saveGlasgowEvaluation(
+            onSuccess = {
+              Toast.makeText(context, "Score de Glasgow enregistré dans le dossier patient !", Toast.LENGTH_SHORT).show()
+            },
+            onPatientRequired = {
+              Toast.makeText(context, "Sélectionnez obligatoirement un dossier patient.", Toast.LENGTH_SHORT).show()
+            }
+          )
+        },
+        enabled = selectedPatient != null,
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(50.dp)
+          .testTag("save_glasgow_button"),
+        shape = RoundedCornerShape(12.dp)
+      ) {
+        Icon(imageVector = Icons.Default.Save, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = if (selectedPatient != null) "ENREGISTRER LE SCORE DE GLASGOW" else "SÉLECTIONNER UN PATIENT POUR ENREGISTRER",
+          fontWeight = FontWeight.Bold,
+          fontSize = 12.sp
+        )
+      }
+    }
+
+    // Glasgow History Section
+    item {
+      Text(
+        text = if (selectedPatient != null) {
+          "Historique Glasgow — ${selectedPatient.fullNameOrAlias} (${historyList.size})"
+        } else {
+          "Historique Glasgow (${historyList.size})"
+        },
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+      )
+    }
+
+    if (historyList.isEmpty()) {
+      item {
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+          Box(modifier = Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+            Text(
+              text = "Aucune évaluation de Glasgow enregistrée pour cette sélection.",
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+      }
+    } else {
+      items(historyList) { g ->
+        GlasgowHistoryCard(
+          evaluation = g,
+          patientName = state.patients.find { it.id == g.patientId }?.fullNameOrAlias,
+          onDelete = { viewModel.deleteGlasgow(g) }
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun GlasgowSelectOption(selected: Boolean, label: String, onClick: () -> Unit) {
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(vertical = 4.dp)
+      .clip(RoundedCornerShape(8.dp))
+      .background(
+        if (selected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+      )
+      .clickable { onClick() }
+      .padding(horizontal = 12.dp, vertical = 10.dp)
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.bodyMedium.copy(
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+      ),
+      color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    )
+  }
+}
+
+@Composable
+private fun GlasgowHistoryCard(
+  evaluation: GlasgowEvaluationEntity,
+  patientName: String?,
+  onDelete: () -> Unit
+) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+  ) {
+    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column {
+          Text(
+            text = evaluation.formattedDateTime.ifBlank { "Date non renseignée" },
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.primary
+          )
+          if (patientName != null) {
+            Text(
+              text = "Patient : $patientName",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          AlertLevelChip(alertLevel = evaluation.alertLevel)
+          Spacer(modifier = Modifier.width(6.dp))
+          IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+            Icon(
+              imageVector = Icons.Default.Delete,
+              contentDescription = "Supprimer",
+              tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+              modifier = Modifier.size(18.dp)
+            )
+          }
+        }
+      }
+      Text(
+        text = "GCS ${evaluation.totalScore}/15 (E${evaluation.eyeOpening} V${evaluation.verbalResponse} M${evaluation.motorResponse})",
+        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+      )
+      Text(
+        text = evaluation.interpretationText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+      )
     }
   }
 }

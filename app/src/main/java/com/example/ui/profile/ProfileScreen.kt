@@ -1,7 +1,16 @@
 package com.example.ui.profile
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,14 +27,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -41,33 +55,38 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import com.example.R
 import com.example.ui.components.LegalDisclaimerBanner
 import com.example.ui.theme.AlertGreen
 import com.example.ui.theme.MedicalBlue
 import com.example.ui.theme.MedicalTeal
 import com.example.ui.theme.NavyDark
-
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import com.example.R
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 val MEDICAL_YEARS = listOf(
   "3e Année (DFGSM 3 / Externat)",
@@ -95,6 +114,155 @@ fun ProfileScreen(
   var uni by remember(profile.university) { mutableStateOf(profile.university) }
   var hospital by remember(profile.currentHospital) { mutableStateOf(profile.currentHospital) }
   var isEditing by remember { mutableStateOf(false) }
+  var showPhotoOptionsDialog by remember { mutableStateOf(false) }
+  var pendingCameraFile by remember { mutableStateOf<File?>(null) }
+
+  val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = profile.photoPath) {
+    value = withContext(Dispatchers.IO) {
+      val path = profile.photoPath ?: return@withContext null
+      val file = File(path)
+      if (!file.exists()) return@withContext null
+      try {
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, opts)
+        val maxDim = maxOf(opts.outWidth, opts.outHeight)
+        val sampleSize = if (maxDim > 512) maxDim / 512 else 1
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize.coerceAtLeast(1) }
+        BitmapFactory.decodeFile(path, decodeOpts)?.asImageBitmap()
+      } catch (_: Exception) {
+        null
+      }
+    }
+  }
+
+  val galleryLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.PickVisualMedia()
+  ) { uri: Uri? ->
+    if (uri != null) {
+      viewModel.savePhotoFromUri(context, uri) { success ->
+        Toast.makeText(
+          context,
+          if (success) "Photo de profil enregistrée" else "Impossible d'importer la photo",
+          Toast.LENGTH_SHORT
+        ).show()
+      }
+    }
+  }
+
+  val cameraLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.TakePicture()
+  ) { success: Boolean ->
+    val file = pendingCameraFile
+    if (success && file != null) {
+      viewModel.savePhotoFromFilePath(file.absolutePath) { saved ->
+        Toast.makeText(
+          context,
+          if (saved) "Photo capturée et enregistrée" else "Erreur d'enregistrement de la photo",
+          Toast.LENGTH_SHORT
+        ).show()
+      }
+    }
+  }
+
+  fun launchCameraCapture() {
+    try {
+      val photoFile = File(context.filesDir, "student_profile_photo_${System.currentTimeMillis()}.jpg")
+      pendingCameraFile = photoFile
+      val photoUri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        photoFile
+      )
+      cameraLauncher.launch(photoUri)
+    } catch (_: Exception) {
+      Toast.makeText(context, "Appareil photo indisponible", Toast.LENGTH_SHORT).show()
+    }
+  }
+
+  val cameraPermissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestPermission()
+  ) { granted: Boolean ->
+    if (granted) {
+      launchCameraCapture()
+    } else {
+      Toast.makeText(
+        context,
+        "Permission appareil photo refusée. Vous pouvez importer depuis la galerie.",
+        Toast.LENGTH_SHORT
+      ).show()
+    }
+  }
+
+  if (showPhotoOptionsDialog) {
+    AlertDialog(
+      onDismissRequest = { showPhotoOptionsDialog = false },
+      title = { Text("Photo du profil étudiant") },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text(
+            text = "La photo est enregistrée localement sur votre téléphone (sans accès Internet).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          OutlinedButton(
+            onClick = {
+              showPhotoOptionsDialog = false
+              galleryLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+              )
+            },
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("profile_pick_gallery_button")
+          ) {
+            Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Choisir dans la galerie")
+          }
+          OutlinedButton(
+            onClick = {
+              showPhotoOptionsDialog = false
+              val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+              ) == PackageManager.PERMISSION_GRANTED
+              if (hasPermission) {
+                launchCameraCapture()
+              } else {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+              }
+            },
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("profile_take_photo_button")
+          ) {
+            Icon(Icons.Default.CameraAlt, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Prendre une photo")
+          }
+          if (profile.photoPath != null) {
+            TextButton(
+              onClick = {
+                showPhotoOptionsDialog = false
+                viewModel.removePhoto()
+                Toast.makeText(context, "Photo supprimée", Toast.LENGTH_SHORT).show()
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Supprimer la photo", color = MaterialTheme.colorScheme.error)
+            }
+          }
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = { showPhotoOptionsDialog = false }) {
+          Text("Fermer")
+        }
+      }
+    )
+  }
 
   LazyColumn(
     modifier = modifier
@@ -134,20 +302,52 @@ fun ProfileScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
               modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .size(68.dp)
+                .clickable { showPhotoOptionsDialog = true }
+                .testTag("profile_avatar_button"),
               contentAlignment = Alignment.Center
             ) {
-              Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(34.dp)
-              )
+              Box(
+                modifier = Modifier
+                  .size(64.dp)
+                  .clip(CircleShape)
+                  .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+              ) {
+                if (avatarBitmap != null) {
+                  Image(
+                    bitmap = avatarBitmap!!,
+                    contentDescription = "Photo du profil étudiant",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                  )
+                } else {
+                  Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Ajouter une photo de profil",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(34.dp)
+                  )
+                }
+              }
+              Box(
+                modifier = Modifier
+                  .align(Alignment.BottomEnd)
+                  .size(22.dp)
+                  .clip(CircleShape)
+                  .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.CameraAlt,
+                  contentDescription = "Modifier la photo",
+                  tint = Color.White,
+                  modifier = Modifier.size(13.dp)
+                )
+              }
             }
             Spacer(modifier = Modifier.width(14.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
               Text(
                 text = profile.name,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -162,6 +362,14 @@ fun ProfileScreen(
                 text = profile.university,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+              Text(
+                text = if (profile.photoPath != null) "Touchez la photo pour la modifier" else "Touchez l'icône pour ajouter une photo",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                  .padding(top = 4.dp)
+                  .clickable { showPhotoOptionsDialog = true }
               )
             }
           }

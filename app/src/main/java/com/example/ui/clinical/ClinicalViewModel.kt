@@ -48,6 +48,12 @@ data class ObservationFormState(
   val clinicalSynthesis: String = "",
   val diagnosticHypotheses: String = "",
 
+  // Sync metadata from centralized patient dossier (non-destructive)
+  val hasSyncedVitals: Boolean = false,
+  val hasSyncedGlasgow: Boolean = false,
+  val syncedLabsCount: Int = 0,
+  val syncStatusMessage: String = "",
+
   // Generated Text
   val generatedObservationText: String = "",
   val isDraftGenerated: Boolean = false,
@@ -194,8 +200,127 @@ class ClinicalViewModel(private val repository: MedicalRepository) : ViewModel()
       patientGender = patient.gender,
       department = patient.department,
       roomNumber = patient.roomNumber,
-      admissionDate = patient.admissionDate
+      admissionDate = patient.admissionDate,
+      admissionReason = patient.primaryCondition,
+      syncStatusMessage = "Synchronisation du dossier en cours...",
+      isDraftGenerated = false,
+      isSavedSuccess = false
     )
+    viewModelScope.launch {
+      syncObservationFromPatientDossier(patient)
+    }
+  }
+
+  fun refreshSelectedPatientSyncData() {
+    val currentId = _obsForm.value.patientId ?: return
+    val matched = patients.value.find { it.id == currentId } ?: return
+    viewModelScope.launch {
+      syncObservationFromPatientDossier(matched)
+    }
+  }
+
+  suspend fun syncObservationFromPatientDossier(patient: PatientEntity) {
+    val latestVital = repository.getLatestVitalForPatient(patient.id)
+    val latestGlasgow = repository.getLatestGlasgowForPatient(patient.id)
+    val labResults = repository.getLabResultsForPatientOnce(patient.id)
+      .filter { !it.testType.equals("GLASGOW", ignoreCase = true) }
+
+    val gcsLine = if (latestGlasgow != null) {
+      val gcsAdapted = when {
+        latestGlasgow.totalScore == 15 -> "Patient conscient, vigile et orienté"
+        latestGlasgow.totalScore in 13..14 -> "Altération légère de la vigilance / confusion modérée"
+        latestGlasgow.totalScore in 9..12 -> "Altération modérée de la conscience / somnolence pathologique"
+        else -> "Coma sévère (altération majeure de la vigilance — alerte vitale, protection des voies aériennes requise)"
+      }
+      "Conscience : Score de Glasgow ${latestGlasgow.totalScore}/15 (E${latestGlasgow.eyeOpening} V${latestGlasgow.verbalResponse} M${latestGlasgow.motorResponse}) — $gcsAdapted (relevé du ${latestGlasgow.formattedDateTime})."
+    } else {
+      "Conscience : Score de Glasgow non encore enregistré dans Mesures (à évaluer ou saisir manuellement)."
+    }
+
+    val vitalsLine = if (latestVital != null) {
+      val parts = mutableListOf<String>()
+      latestVital.temperature?.let { parts.add("T° : $it°C") }
+      if (latestVital.systolicBp != null && latestVital.diastolicBp != null) {
+        val pam = (latestVital.systolicBp + 2 * latestVital.diastolicBp) / 3f
+        parts.add(String.format(Locale.FRANCE, "PA : %d/%d mmHg (PAM %.1f)", latestVital.systolicBp, latestVital.diastolicBp, pam))
+      }
+      latestVital.heartRate?.let { parts.add("FC : $it bpm") }
+      latestVital.respiratoryRate?.let { parts.add("FR : $it/min") }
+      latestVital.oxygenSaturation?.let { parts.add("SpO2 : $it%") }
+      latestVital.bloodGlucose?.let { parts.add("Glycémie : $it g/L") }
+      if (latestVital.weight != null && latestVital.height != null && latestVital.height > 0f) {
+        val hM = latestVital.height / 100f
+        val imc = latestVital.weight / (hM * hM)
+        parts.add(String.format(Locale.FRANCE, "Poids %.1f kg, Taille %.0f cm (IMC %.1f kg/m²)", latestVital.weight, latestVital.height, imc))
+      }
+      val valuesText = if (parts.isNotEmpty()) parts.joinToString(" | ") else "Valeurs partielles"
+      "Constantes vitales (${latestVital.formattedDateTime}) : $valuesText. [${latestVital.alertLevel}]"
+    } else {
+      "Constantes vitales : Aucune mesure enregistrée dans le module Mesures pour ce patient (saisie manuelle possible)."
+    }
+
+    val syncedGeneralExam = buildString {
+      append("A. Examen Général & Conscience :\n")
+      append("• $gcsLine\n")
+      append("• État général : à préciser (score OMS, conjonctives, hydratation).\n\n")
+      append("B. État Hémodynamique & Constantes (Mesures) :\n")
+      append("• $vitalsLine")
+    }
+
+    val syncedComplementaryExams = if (labResults.isNotEmpty()) {
+      buildString {
+        append("C. Examens Complémentaires Paracliniques (Module Analyses) :\n")
+        labResults.forEach { lab ->
+          val examLabel = when (lab.testType) {
+            "NFS" -> "Numération Formule Sanguine (NFS)"
+            "UE_CREAT" -> "Ionogramme & Fonction Rénale (UECréat)"
+            "HEPATIC" -> "Bilan Hépatique & Pancréatique"
+            "INFLAM_COAG" -> "Inflammation & Hémostase"
+            "URINE" -> "Bandelette Urinaire"
+            else -> lab.testType
+          }
+          append("• $examLabel (${lab.date})")
+          if (lab.valuesMapJson.isNotBlank()) {
+            append(" — Paramètres : ${lab.valuesMapJson}")
+          }
+          append("\n  Conclusion / Interprétation : ${lab.interpretationText}\n")
+        }
+      }.trimEnd()
+    } else {
+      ""
+    }
+
+    val syncedParts = mutableListOf<String>()
+    if (patient.primaryCondition.isNotBlank()) syncedParts.add("Motif")
+    if (latestGlasgow != null) syncedParts.add("Glasgow (${latestGlasgow.totalScore}/15)")
+    if (latestVital != null) syncedParts.add("Constantes")
+    if (labResults.isNotEmpty()) syncedParts.add("${labResults.size} analyse(s)")
+    val statusMsg = if (syncedParts.isNotEmpty()) {
+      "Données importées du dossier (copie éditable sans modifier les mesures/analyses d'origine) : ${syncedParts.joinToString(" • ")}"
+    } else {
+      "Dossier sélectionné (${patient.fullNameOrAlias}) : aucune mesure ni analyse antérieure trouvée, saisie manuelle active."
+    }
+
+    _obsForm.value = _obsForm.value.copy(
+      patientId = patient.id,
+      patientName = patient.fullNameOrAlias,
+      patientAge = patient.age.toString(),
+      patientGender = patient.gender,
+      department = patient.department,
+      roomNumber = patient.roomNumber,
+      admissionDate = patient.admissionDate,
+      admissionReason = patient.primaryCondition,
+      generalExam = syncedGeneralExam,
+      complementaryExams = syncedComplementaryExams,
+      hasSyncedVitals = latestVital != null,
+      hasSyncedGlasgow = latestGlasgow != null,
+      syncedLabsCount = labResults.size,
+      syncStatusMessage = statusMsg
+    )
+  }
+
+  fun resetObservationForNewPatient() {
+    _obsForm.value = ObservationFormState()
   }
 
   fun updateObsFields(

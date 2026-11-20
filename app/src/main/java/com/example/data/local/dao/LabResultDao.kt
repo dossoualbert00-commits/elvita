@@ -16,6 +16,9 @@ interface LabResultDao {
   @Query("SELECT * FROM lab_results WHERE patientId = :patientId ORDER BY createdAt DESC")
   fun getLabResultsForPatient(patientId: Long): Flow<List<LabResultEntity>>
 
+  @Query("SELECT * FROM lab_results WHERE patientId = :patientId ORDER BY createdAt DESC")
+  suspend fun getLabResultsForPatientOnce(patientId: Long): List<LabResultEntity>
+
   @Query("SELECT * FROM lab_results WHERE id = :id LIMIT 1")
   suspend fun getLabResultById(id: Long): LabResultEntity?
 

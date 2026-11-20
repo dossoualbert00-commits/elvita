@@ -65,20 +65,24 @@ import com.example.ui.theme.AlertRed
 import com.example.ui.theme.MedicalBlue
 import com.example.ui.theme.MedicalTeal
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LabsScreen(
   viewModel: LabsViewModel,
   initialSubTab: Int = 0,
   modifier: Modifier = Modifier
 ) {
-  var currentTab by remember { mutableIntStateOf(initialSubTab) }
+  var currentTab by remember(initialSubTab) { mutableIntStateOf(initialSubTab.coerceIn(0, 5)) }
+  val patients by viewModel.patients.collectAsState()
+  val selectedPatientId by viewModel.selectedPatientId.collectAsState()
   val nfsState by viewModel.nfsState.collectAsState()
   val ueCreatState by viewModel.ueCreatState.collectAsState()
   val hepaticState by viewModel.hepaticState.collectAsState()
   val inflamCoagState by viewModel.inflamCoagState.collectAsState()
   val urineState by viewModel.urineState.collectAsState()
-  val glasgowState by viewModel.glasgowState.collectAsState()
-  val allLabResults by viewModel.allLabResults.collectAsState()
+  val filteredLabResults by viewModel.filteredLabResults.collectAsState()
+
+  val selectedPatient = patients.find { it.id == selectedPatientId }
 
   Column(
     modifier = modifier
@@ -94,15 +98,66 @@ fun LabsScreen(
     ) {
       Column {
         Text(
-          text = "Analyses Biologiques & Scores",
+          text = "Analyses Biologiques",
           style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
           color = Color.White
         )
         Text(
-          text = "NFS complète, Ionogramme, Foie, Hémostase, Urines et Glasgow",
+          text = "NFS complète, Ionogramme, Foie, Hémostase & Urines",
           style = MaterialTheme.typography.bodySmall,
           color = Color.White.copy(alpha = 0.85f)
         )
+      }
+    }
+
+    // Patient Dossier Selector Bar for Centralized Storage
+    Surface(
+      color = MaterialTheme.colorScheme.surface,
+      tonalElevation = 1.dp,
+      modifier = Modifier.fillMaxWidth()
+    ) {
+      Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        var patExpanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+          expanded = patExpanded,
+          onExpandedChange = { patExpanded = !patExpanded }
+        ) {
+          OutlinedTextField(
+            value = selectedPatient?.let { "Dossier : ${it.fullNameOrAlias} (${it.department})" }
+              ?: "Sélectionner un dossier patient (requis pour enregistrer)",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Dossier patient associé") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = patExpanded) },
+            modifier = Modifier
+              .menuAnchor()
+              .fillMaxWidth()
+              .testTag("labs_patient_selector"),
+            shape = RoundedCornerShape(10.dp),
+            singleLine = true
+          )
+          ExposedDropdownMenu(
+            expanded = patExpanded,
+            onDismissRequest = { patExpanded = false }
+          ) {
+            DropdownMenuItem(
+              text = { Text("Tous les dossiers (lecture seule)") },
+              onClick = {
+                viewModel.onPatientSelected(null)
+                patExpanded = false
+              }
+            )
+            patients.forEach { p ->
+              DropdownMenuItem(
+                text = { Text("${p.fullNameOrAlias} — ${p.department} (${p.roomNumber})") },
+                onClick = {
+                  viewModel.onPatientSelected(p.id)
+                  patExpanded = false
+                }
+              )
+            }
+          }
+        }
       }
     }
 
@@ -140,23 +195,22 @@ fun LabsScreen(
       Tab(
         selected = currentTab == 5,
         onClick = { currentTab = 5 },
-        text = { Text("F. Score de Glasgow", fontWeight = FontWeight.SemiBold) }
-      )
-      Tab(
-        selected = currentTab == 6,
-        onClick = { currentTab = 6 },
-        text = { Text("G. Historique (${allLabResults.size})", fontWeight = FontWeight.SemiBold) }
+        text = { Text("F. Historique (${filteredLabResults.size})", fontWeight = FontWeight.SemiBold) }
       )
     }
 
     when (currentTab) {
-      0 -> NfsSection(viewModel, nfsState)
-      1 -> UeCreatSection(viewModel, ueCreatState)
-      2 -> HepaticSection(viewModel, hepaticState)
-      3 -> InflamCoagSection(viewModel, inflamCoagState)
-      4 -> UrineSection(viewModel, urineState)
-      5 -> GlasgowSection(viewModel, glasgowState)
-      6 -> LabsHistorySection(allLabResults)
+      0 -> NfsSection(viewModel, nfsState, selectedPatientId != null)
+      1 -> UeCreatSection(viewModel, ueCreatState, selectedPatientId != null)
+      2 -> HepaticSection(viewModel, hepaticState, selectedPatientId != null)
+      3 -> InflamCoagSection(viewModel, inflamCoagState, selectedPatientId != null)
+      4 -> UrineSection(viewModel, urineState, selectedPatientId != null)
+      5 -> LabsHistorySection(
+        results = filteredLabResults,
+        patients = patients,
+        selectedPatientName = selectedPatient?.fullNameOrAlias,
+        onDelete = { viewModel.deleteLabResult(it) }
+      )
     }
   }
 }
@@ -165,7 +219,7 @@ fun LabsScreen(
 // A. SECTION NFS ENRICHIE
 // ══════════════════════════════════════════════════════
 @Composable
-fun NfsSection(viewModel: LabsViewModel, state: NfsFormState) {
+fun NfsSection(viewModel: LabsViewModel, state: NfsFormState, hasPatientSelected: Boolean) {
   val context = LocalContext.current
 
   LazyColumn(
@@ -356,18 +410,27 @@ fun NfsSection(viewModel: LabsViewModel, state: NfsFormState) {
 
     state.interpretation?.let { interp ->
       item {
-        NfsDualLevelResultCard(interp = interp) {
+        NfsDualLevelResultCard(
+          interp = interp,
+          hasPatientSelected = hasPatientSelected
+        ) {
           viewModel.saveResult(
-            "NFS",
-            "NFS : ${interp.title}",
-            buildString {
-              append(interp.generalConclusion)
-              append("\n\n")
-              append(interp.details.joinToString("\n"))
+            type = "NFS",
+            summary = "NFS : ${interp.title}",
+            interpretation = buildString {
+              append(interp.professionalMedicalConclusion.ifBlank { interp.generalConclusion })
+              if (interp.details.isNotEmpty()) {
+                append("\n\n")
+                append(interp.details.joinToString("\n"))
+              }
             },
-            interp.alertLevel
+            alertLevel = interp.alertLevel,
+            valuesJson = "Hb ${state.hb} g/dL, GB ${state.gb} G/L, PNN ${state.pnn} G/L, Plq ${state.plt} G/L",
+            onPatientMissing = {
+              Toast.makeText(context, "Sélectionnez d'abord un dossier patient en haut de l'écran.", Toast.LENGTH_SHORT).show()
+            }
           ) {
-            Toast.makeText(context, "Analyse NFS enregistrée !", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Analyse NFS enregistrée dans le dossier patient !", Toast.LENGTH_SHORT).show()
           }
         }
       }
@@ -379,7 +442,7 @@ fun NfsSection(viewModel: LabsViewModel, state: NfsFormState) {
 // B. SECTION UECRÉAT & REIN
 // ══════════════════════════════════════════════════════
 @Composable
-fun UeCreatSection(viewModel: LabsViewModel, state: UeCreatFormState) {
+fun UeCreatSection(viewModel: LabsViewModel, state: UeCreatFormState, hasPatientSelected: Boolean) {
   val context = LocalContext.current
 
   LazyColumn(
@@ -496,9 +559,24 @@ fun UeCreatSection(viewModel: LabsViewModel, state: UeCreatFormState) {
 
     state.interpretation?.let { interp ->
       item {
-        InterpretationResultCard(interp = interp) {
-          viewModel.saveResult("UE_CREAT", "Ionogramme : ${interp.title}", interp.details.joinToString("\n"), interp.alertLevel) {
-            Toast.makeText(context, "Bilan UECréat enregistré !", Toast.LENGTH_SHORT).show()
+        InterpretationResultCard(interp = interp, hasPatientSelected = hasPatientSelected) {
+          viewModel.saveResult(
+            type = "UE_CREAT",
+            summary = "Ionogramme & Rein : ${interp.title}",
+            interpretation = buildString {
+              append(interp.generalConclusion.ifBlank { interp.summary })
+              if (interp.details.isNotEmpty()) {
+                append("\n\n")
+                append(interp.details.joinToString("\n"))
+              }
+            },
+            alertLevel = interp.alertLevel,
+            valuesJson = "Urée ${state.urea} mmol/L, Créat ${state.creat} µmol/L, Na+ ${state.na}, K+ ${state.k} mmol/L",
+            onPatientMissing = {
+              Toast.makeText(context, "Sélectionnez d'abord un dossier patient en haut de l'écran.", Toast.LENGTH_SHORT).show()
+            }
+          ) {
+            Toast.makeText(context, "Bilan UECréat enregistré dans le dossier patient !", Toast.LENGTH_SHORT).show()
           }
         }
       }
@@ -510,7 +588,7 @@ fun UeCreatSection(viewModel: LabsViewModel, state: UeCreatFormState) {
 // C. SECTION BILAN HÉPATIQUE & PANCRÉAS
 // ══════════════════════════════════════════════════════
 @Composable
-fun HepaticSection(viewModel: LabsViewModel, state: HepaticFormState) {
+fun HepaticSection(viewModel: LabsViewModel, state: HepaticFormState, hasPatientSelected: Boolean) {
   val context = LocalContext.current
 
   LazyColumn(
@@ -617,9 +695,24 @@ fun HepaticSection(viewModel: LabsViewModel, state: HepaticFormState) {
 
     state.interpretation?.let { interp ->
       item {
-        InterpretationResultCard(interp = interp) {
-          viewModel.saveResult("HEPATIC", "Foie : ${interp.title}", interp.details.joinToString("\n"), interp.alertLevel) {
-            Toast.makeText(context, "Bilan hépatique enregistré !", Toast.LENGTH_SHORT).show()
+        InterpretationResultCard(interp = interp, hasPatientSelected = hasPatientSelected) {
+          viewModel.saveResult(
+            type = "HEPATIC",
+            summary = "Bilan Hépatique : ${interp.title}",
+            interpretation = buildString {
+              append(interp.generalConclusion.ifBlank { interp.summary })
+              if (interp.details.isNotEmpty()) {
+                append("\n\n")
+                append(interp.details.joinToString("\n"))
+              }
+            },
+            alertLevel = interp.alertLevel,
+            valuesJson = "ALAT ${state.alat}, ASAT ${state.asat}, PAL ${state.pal}, GGT ${state.ggt}, BiliT ${state.biliTotal}, Lipase ${state.lipase}",
+            onPatientMissing = {
+              Toast.makeText(context, "Sélectionnez d'abord un dossier patient en haut de l'écran.", Toast.LENGTH_SHORT).show()
+            }
+          ) {
+            Toast.makeText(context, "Bilan hépatique enregistré dans le dossier patient !", Toast.LENGTH_SHORT).show()
           }
         }
       }
@@ -631,7 +724,7 @@ fun HepaticSection(viewModel: LabsViewModel, state: HepaticFormState) {
 // D. SECTION INFLAMMATION & HÉMOSTASE
 // ══════════════════════════════════════════════════════
 @Composable
-fun InflamCoagSection(viewModel: LabsViewModel, state: InflamCoagFormState) {
+fun InflamCoagSection(viewModel: LabsViewModel, state: InflamCoagFormState, hasPatientSelected: Boolean) {
   val context = LocalContext.current
 
   LazyColumn(
@@ -750,8 +843,23 @@ fun InflamCoagSection(viewModel: LabsViewModel, state: InflamCoagFormState) {
 
     state.interpretation?.let { interp ->
       item {
-        InterpretationResultCard(interp = interp) {
-          viewModel.saveResult("INFLAM_COAG", "Inflammation/Hémostase : ${interp.title}", interp.details.joinToString("\n"), interp.alertLevel) {
+        InterpretationResultCard(interp = interp, hasPatientSelected = hasPatientSelected) {
+          viewModel.saveResult(
+            type = "INFLAM_COAG",
+            summary = "Inflammation/Hémostase : ${interp.title}",
+            interpretation = buildString {
+              append(interp.generalConclusion.ifBlank { interp.summary })
+              if (interp.details.isNotEmpty()) {
+                append("\n\n")
+                append(interp.details.joinToString("\n"))
+              }
+            },
+            alertLevel = interp.alertLevel,
+            valuesJson = "CRP ${state.crp} mg/L, PCT ${state.pct}, TP ${state.tp}%, INR ${state.inr}, D-Dimères ${state.dDimeres}",
+            onPatientMissing = {
+              Toast.makeText(context, "Sélectionnez d'abord un dossier patient en haut de l'écran.", Toast.LENGTH_SHORT).show()
+            }
+          ) {
             Toast.makeText(context, "Bilan d'hémostase et inflammation enregistré !", Toast.LENGTH_SHORT).show()
           }
         }
@@ -765,7 +873,7 @@ fun InflamCoagSection(viewModel: LabsViewModel, state: InflamCoagFormState) {
 // ══════════════════════════════════════════════════════
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UrineSection(viewModel: LabsViewModel, state: UrineDipstickFormState) {
+fun UrineSection(viewModel: LabsViewModel, state: UrineDipstickFormState, hasPatientSelected: Boolean) {
   val context = LocalContext.current
 
   LazyColumn(
@@ -827,9 +935,24 @@ fun UrineSection(viewModel: LabsViewModel, state: UrineDipstickFormState) {
 
     state.interpretation?.let { interp ->
       item {
-        InterpretationResultCard(interp = interp) {
-          viewModel.saveResult("URINE", "Urines : ${interp.title}", interp.details.joinToString("\n"), interp.alertLevel) {
-            Toast.makeText(context, "Résultats urinaires enregistrés !", Toast.LENGTH_SHORT).show()
+        InterpretationResultCard(interp = interp, hasPatientSelected = hasPatientSelected) {
+          viewModel.saveResult(
+            type = "URINE",
+            summary = "Bandelette Urinaire : ${interp.title}",
+            interpretation = buildString {
+              append(interp.generalConclusion.ifBlank { interp.summary })
+              if (interp.details.isNotEmpty()) {
+                append("\n\n")
+                append(interp.details.joinToString("\n"))
+              }
+            },
+            alertLevel = interp.alertLevel,
+            valuesJson = "Leuco ${state.leucocytes}, Nitrites ${state.nitrites}, Prot ${state.proteinurie}, Sang ${state.hematurie}",
+            onPatientMissing = {
+              Toast.makeText(context, "Sélectionnez d'abord un dossier patient en haut de l'écran.", Toast.LENGTH_SHORT).show()
+            }
+          ) {
+            Toast.makeText(context, "Résultats urinaires enregistrés dans le dossier patient !", Toast.LENGTH_SHORT).show()
           }
         }
       }
@@ -879,231 +1002,29 @@ fun DropdownSelector(
 }
 
 // ══════════════════════════════════════════════════════
-// F. SECTION SCORE DE GLASGOW
+// F. SECTION HISTORIQUE DES ANALYSES
 // ══════════════════════════════════════════════════════
 @Composable
-fun GlasgowSection(viewModel: LabsViewModel, state: GlasgowState) {
-  val context = LocalContext.current
-  val total = state.eyeScore + state.verbalScore + state.motorScore
-
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
-    contentPadding = PaddingValues(16.dp),
-    verticalArrangement = Arrangement.spacedBy(14.dp)
-  ) {
-    item { LegalDisclaimerBanner() }
-
-    item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-          containerColor = when {
-            total <= 8 -> AlertRed.copy(alpha = 0.12f)
-            total <= 12 -> AlertOrange.copy(alpha = 0.12f)
-            else -> AlertGreen.copy(alpha = 0.12f)
-          }
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-          2.dp,
-          when {
-            total <= 8 -> AlertRed
-            total <= 12 -> AlertOrange
-            else -> AlertGreen
-          }
-        )
-      ) {
-        Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp),
-          horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-          Text(
-            text = "Score de Glasgow Total (GCS)",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
-          )
-          Spacer(modifier = Modifier.height(8.dp))
-          Text(
-            text = "$total / 15",
-            style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black),
-            color = when {
-              total <= 8 -> AlertRed
-              total <= 12 -> AlertOrange
-              else -> AlertGreen
-            }
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = "Composantes : E${state.eyeScore} V${state.verbalScore} M${state.motorScore}",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-
-          if (total <= 8) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-              modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(AlertRed)
-                .padding(10.dp),
-              contentAlignment = Alignment.Center
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = Color.White)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                  text = "COMA SÉVÈRE (GCS <= 8) : Indication urgente d'intubation trachéale !",
-                  color = Color.White,
-                  style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
-                )
-              }
-            }
-          }
-        }
-      }
-    }
-
-    item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Text(
-            text = "1. Ouverture des Yeux : E (${state.eyeScore} / 4)",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
-          )
-          Spacer(modifier = Modifier.height(8.dp))
-          listOf(
-            4 to "4 - Spontanée",
-            3 to "3 - À la stimulation verbale",
-            2 to "2 - À la stimulation douloureuse",
-            1 to "1 - Aucune"
-          ).forEach { (score, label) ->
-            GlasgowOptionItem(
-              selected = state.eyeScore == score,
-              label = label,
-              onClick = { viewModel.setGlasgowEye(score) }
-            )
-          }
-        }
-      }
-    }
-
-    item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Text(
-            text = "2. Réponse Verbale : V (${state.verbalScore} / 5)",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
-          )
-          Spacer(modifier = Modifier.height(8.dp))
-          listOf(
-            5 to "5 - Orientée",
-            4 to "4 - Confuse",
-            3 to "3 - Mots inappropriés",
-            2 to "2 - Sons incompréhensibles",
-            1 to "1 - Aucune"
-          ).forEach { (score, label) ->
-            GlasgowOptionItem(
-              selected = state.verbalScore == score,
-              label = label,
-              onClick = { viewModel.setGlasgowVerbal(score) }
-            )
-          }
-        }
-      }
-    }
-
-    item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-      ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-          Text(
-            text = "3. Réponse Motrice : M (${state.motorScore} / 6)",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
-          )
-          Spacer(modifier = Modifier.height(8.dp))
-          listOf(
-            6 to "6 - Obéit aux ordres",
-            5 to "5 - Localise la douleur",
-            4 to "4 - Retrait / Évitement normal",
-            3 to "3 - Flexion anormale (Décortication)",
-            2 to "2 - Extension anormale (Décérébration)",
-            1 to "1 - Aucune"
-          ).forEach { (score, label) ->
-            GlasgowOptionItem(
-              selected = state.motorScore == score,
-              label = label,
-              onClick = { viewModel.setGlasgowMotor(score) }
-            )
-          }
-        }
-      }
-    }
-
-    state.interpretation?.let { interp ->
-      item {
-        InterpretationResultCard(interp = interp) {
-          viewModel.saveResult(
-            "GLASGOW",
-            "Glasgow GCS $total/15 (E${state.eyeScore} V${state.verbalScore} M${state.motorScore})",
-            interp.details.joinToString("\n"),
-            interp.alertLevel
-          ) {
-            Toast.makeText(context, "Score de Glasgow enregistré !", Toast.LENGTH_SHORT).show()
-          }
-        }
-      }
-    }
-  }
-}
-
-@Composable
-fun GlasgowOptionItem(selected: Boolean, label: String, onClick: () -> Unit) {
-  Box(
-    modifier = Modifier
-      .fillMaxWidth()
-      .padding(vertical = 4.dp)
-      .clip(RoundedCornerShape(8.dp))
-      .background(
-        if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-      )
-      .clickable { onClick() }
-      .padding(horizontal = 12.dp, vertical = 10.dp)
-  ) {
-    Text(
-      text = label,
-      style = MaterialTheme.typography.bodyMedium.copy(
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-      ),
-      color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    )
-  }
-}
-
-// ══════════════════════════════════════════════════════
-// G. SECTION HISTORIQUE DES ANALYSES
-// ══════════════════════════════════════════════════════
-@Composable
-fun LabsHistorySection(results: List<com.example.data.local.entities.LabResultEntity>) {
+fun LabsHistorySection(
+  results: List<com.example.data.local.entities.LabResultEntity>,
+  patients: List<com.example.data.local.entities.PatientEntity>,
+  selectedPatientName: String?,
+  onDelete: (com.example.data.local.entities.LabResultEntity) -> Unit
+) {
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(16.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp)
   ) {
+    item {
+      Text(
+        text = selectedPatientName?.let { "Historique des analyses — $it (${results.size})" }
+          ?: "Toutes les analyses enregistrées (${results.size})",
+        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.primary
+      )
+    }
+
     if (results.isEmpty()) {
       item {
         Box(
@@ -1113,12 +1034,13 @@ fun LabsHistorySection(results: List<com.example.data.local.entities.LabResultEn
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(imageVector = Icons.Default.Biotech, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Aucune analyse enregistrée pour le moment.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+            Text("Aucune analyse enregistrée pour cette sélection.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
           }
         }
       }
     } else {
       items(results) { res ->
+        val patientLabel = patients.find { it.id == res.patientId }?.fullNameOrAlias
         Card(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(12.dp),
@@ -1131,14 +1053,36 @@ fun LabsHistorySection(results: List<com.example.data.local.entities.LabResultEn
               verticalAlignment = Alignment.CenterVertically
             ) {
               Text(
-                text = res.testType,
+                text = "${res.testType}${patientLabel?.let { " • $it" } ?: ""}",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
               )
-              Text(text = res.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = res.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Spacer(modifier = Modifier.width(6.dp))
+                AlertLevelChip(alertLevel = res.alertLevel)
+              }
             }
             Text(text = res.summaryTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            if (res.valuesMapJson.isNotBlank()) {
+              Text(
+                text = "Paramètres : ${res.valuesMapJson}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
             Text(text = res.interpretationText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+              Text(
+                text = "Supprimer",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                  .clickable { onDelete(res) }
+                  .padding(horizontal = 4.dp, vertical = 2.dp)
+              )
+            }
           }
         }
       }
@@ -1147,14 +1091,18 @@ fun LabsHistorySection(results: List<com.example.data.local.entities.LabResultEn
 }
 
 @Composable
-fun InterpretationResultCard(interp: BiologicalInterpretation, onSave: () -> Unit) {
+fun InterpretationResultCard(
+  interp: BiologicalInterpretation,
+  hasPatientSelected: Boolean = true,
+  onSave: () -> Unit
+) {
   Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(16.dp),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
   ) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1190,10 +1138,70 @@ fun InterpretationResultCard(interp: BiologicalInterpretation, onSave: () -> Uni
         }
       }
 
-      Spacer(modifier = Modifier.height(4.dp))
+      // General Conclusion Box (explicit per exam)
+      val conclusionText = interp.generalConclusion.ifBlank { interp.professionalMedicalConclusion }
+      if (conclusionText.isNotBlank()) {
+        Surface(
+          shape = RoundedCornerShape(12.dp),
+          color = when (interp.alertLevel) {
+            "CRITICAL" -> AlertRed.copy(alpha = 0.08f)
+            "MODERATE" -> AlertOrange.copy(alpha = 0.08f)
+            else -> MedicalBlue.copy(alpha = 0.08f)
+          },
+          border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            when (interp.alertLevel) {
+              "CRITICAL" -> AlertRed.copy(alpha = 0.45f)
+              "MODERATE" -> AlertOrange.copy(alpha = 0.45f)
+              else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            }
+          )
+        ) {
+          Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+              text = "Conclusion générale de l'examen",
+              style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold),
+              color = when (interp.alertLevel) {
+                "CRITICAL" -> AlertRed
+                "MODERATE" -> AlertOrange
+                else -> MaterialTheme.colorScheme.primary
+              }
+            )
+            Text(
+              text = conclusionText,
+              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, lineHeight = 20.sp),
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+      }
+
+      if (interp.identifiedAssociations.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+          Text(
+            text = "Associations & Profils identifiés :",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF4F46E5))
+          )
+          interp.identifiedAssociations.forEach { assoc ->
+            Text(text = "• $assoc", style = MaterialTheme.typography.bodySmall)
+          }
+        }
+      }
+
+      if (interp.diagnosticOrientations.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+          Text(
+            text = "Orientations diagnostiques à discuter (avec la clinique) :",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+          )
+          interp.diagnosticOrientations.forEach { orient ->
+            Text(text = "→ $orient", style = MaterialTheme.typography.bodySmall)
+          }
+        }
+      }
 
       Text(
-        text = "Analyse Pédagogique Détaillée :",
+        text = "Analyse Pédagogique & Signification Clinique :",
         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
       )
       interp.details.forEach { d ->
@@ -1203,10 +1211,25 @@ fun InterpretationResultCard(interp: BiologicalInterpretation, onSave: () -> Uni
         }
       }
 
+      if (interp.pedagogicalMechanisms.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text(
+            text = "Physiopathologie & Mécanismes :",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MedicalTeal)
+          )
+          interp.pedagogicalMechanisms.forEach { (param, expl) ->
+            Text(
+              text = "$param : $expl",
+              style = MaterialTheme.typography.bodySmall,
+              modifier = Modifier.padding(start = 4.dp)
+            )
+          }
+        }
+      }
+
       if (interp.clinicalPearls.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(6.dp))
         Text(
-          text = "Points Clés & Perles de l'Interne :",
+          text = "Éléments à rechercher & Examens complémentaires :",
           style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = MedicalTeal)
         )
         interp.clinicalPearls.forEach { p ->
@@ -1217,17 +1240,35 @@ fun InterpretationResultCard(interp: BiologicalInterpretation, onSave: () -> Uni
         }
       }
 
-      Spacer(modifier = Modifier.height(8.dp))
+      if (interp.clinicalContextCaveat.isNotBlank()) {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFFEF3C7))
+            .padding(10.dp)
+        ) {
+          Text(
+            text = interp.clinicalContextCaveat,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, color = Color(0xFF78350F), lineHeight = 16.sp)
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(4.dp))
 
       Button(
         onClick = onSave,
-        modifier = Modifier.fillMaxWidth().height(44.dp),
+        modifier = Modifier.fillMaxWidth().height(46.dp),
         shape = RoundedCornerShape(10.dp),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
       ) {
         Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
-        Text("Enregistrer dans les résultats")
+        Text(
+          text = if (hasPatientSelected) "Enregistrer dans le dossier patient" else "Sélectionnez un patient pour enregistrer",
+          fontWeight = FontWeight.SemiBold
+        )
       }
     }
   }
@@ -1236,6 +1277,7 @@ fun InterpretationResultCard(interp: BiologicalInterpretation, onSave: () -> Uni
 @Composable
 fun NfsDualLevelResultCard(
   interp: BiologicalInterpretation,
+  hasPatientSelected: Boolean = true,
   onSave: () -> Unit
 ) {
   var selectedTab by remember { mutableIntStateOf(0) }
@@ -1629,7 +1671,10 @@ fun NfsDualLevelResultCard(
       ) {
         Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Enregistrer l'analyse NFS dans les résultats", fontWeight = FontWeight.Bold)
+        Text(
+          text = if (hasPatientSelected) "Enregistrer l'analyse NFS dans le dossier patient" else "Sélectionnez un patient pour enregistrer la NFS",
+          fontWeight = FontWeight.Bold
+        )
       }
     }
   }

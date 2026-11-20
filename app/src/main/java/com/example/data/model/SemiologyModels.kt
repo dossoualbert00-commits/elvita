@@ -23,15 +23,21 @@ data class SemiologySheet(
   val keyPoints: List<String>                           // 14. Points essentiels à retenir
 )
 
-enum class SemiologyCategory(val label: String, val iconName: String) {
+enum class SemiologyCategory(val label: String, val iconName: String, val isSpecialty: Boolean = true) {
   CARDIOVASCULAR("Cardiovasculaire", "favorite"),
-  RESPIRATORY("Respiratoire", "air"),
+  RESPIRATORY("Pleuropulmonaire / Respiratoire", "air"),
   DIGESTIVE("Digestif", "restaurant"),
   NEUROLOGICAL("Neurologique", "psychology"),
-  URINARY("Urinaire & Rénal", "water_drop"),
-  RHEUMATOLOGY("Rhumatologique", "accessibility_new"),
-  DERMATOLOGY("Dermatologique", "healing"),
-  GENERAL("Sémiologie Générale", "medical_services")
+  URINARY("Néphrologie & Urologie", "water_drop"),
+  ENDOCRINOLOGY("Endocrinologie & Métabolisme", "science"),
+  RHEUMATOLOGY("Rhumatologie", "accessibility_new"),
+  DERMATOLOGY("Dermatologie", "healing"),
+  HEMATOLOGY("Hématologie", "bloodtype"),
+  INFECTIOUS("Infectiologie", "coronavirus"),
+  ENT("ORL", "hearing"),
+  OPHTHALMOLOGY("Ophtalmologie", "visibility"),
+  GYNECOLOGY_OBSTETRICS("Gynécologie-Obstétrique", "pregnant_woman"),
+  GENERAL("Sémiologie Générale", "medical_services", isSpecialty = false)
 }
 
 data class QuizQuestion(

@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.local.AppDatabase
 import com.example.data.local.entities.ClinicalObservationEntity
 import com.example.data.local.entities.ClinicalUpdateEntity
+import com.example.data.local.entities.GlasgowEvaluationEntity
 import com.example.data.local.entities.LabResultEntity
 import com.example.data.local.entities.PatientEntity
 import com.example.data.local.entities.VitalEntity
@@ -34,6 +35,9 @@ class MedicalRepository(private val database: AppDatabase) {
 
   fun getVitalsForPatient(patientId: Long): Flow<List<VitalEntity>> = database.vitalDao().getVitalsByPatient(patientId)
 
+  suspend fun getLatestVitalForPatient(patientId: Long): VitalEntity? =
+    database.vitalDao().getLatestVitalForPatient(patientId)
+
   fun getVitalsSince(sinceTimestamp: Long): Flow<List<VitalEntity>> = database.vitalDao().getVitalsSince(sinceTimestamp)
 
   fun getPatientVitalsSince(patientId: Long, sinceTimestamp: Long): Flow<List<VitalEntity>> =
@@ -42,6 +46,22 @@ class MedicalRepository(private val database: AppDatabase) {
   suspend fun insertVital(vital: VitalEntity): Long = database.vitalDao().insertVital(vital)
 
   suspend fun deleteVital(vital: VitalEntity) = database.vitalDao().deleteVital(vital)
+
+  // Glasgow Evaluations
+  fun getAllGlasgowEvaluations(): Flow<List<GlasgowEvaluationEntity>> =
+    database.glasgowEvaluationDao().getAllGlasgowEvaluations()
+
+  fun getGlasgowForPatient(patientId: Long): Flow<List<GlasgowEvaluationEntity>> =
+    database.glasgowEvaluationDao().getGlasgowForPatient(patientId)
+
+  suspend fun getLatestGlasgowForPatient(patientId: Long): GlasgowEvaluationEntity? =
+    database.glasgowEvaluationDao().getLatestGlasgowForPatient(patientId)
+
+  suspend fun insertGlasgow(evaluation: GlasgowEvaluationEntity): Long =
+    database.glasgowEvaluationDao().insertGlasgow(evaluation)
+
+  suspend fun deleteGlasgow(evaluation: GlasgowEvaluationEntity) =
+    database.glasgowEvaluationDao().deleteGlasgow(evaluation)
 
   // Clinical Observations
   fun getObservationsForPatient(patientId: Long): Flow<List<ClinicalObservationEntity>> =
@@ -86,6 +106,9 @@ class MedicalRepository(private val database: AppDatabase) {
 
   fun getLabResultsForPatient(patientId: Long): Flow<List<LabResultEntity>> =
     database.labResultDao().getLabResultsForPatient(patientId)
+
+  suspend fun getLabResultsForPatientOnce(patientId: Long): List<LabResultEntity> =
+    database.labResultDao().getLabResultsForPatientOnce(patientId)
 
   suspend fun insertLabResult(labResult: LabResultEntity): Long =
     database.labResultDao().insertLabResult(labResult)

@@ -4,30 +4,35 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.entities.ClinicalObservationEntity
 import com.example.data.local.entities.ClinicalUpdateEntity
+import com.example.data.local.entities.GlasgowEvaluationEntity
 import com.example.data.local.entities.LabResultEntity
 import com.example.data.local.entities.PatientEntity
 import com.example.data.local.entities.VitalEntity
 import com.example.data.repository.MedicalRepository
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class PatientDetailState(
   val patient: PatientEntity? = null,
   val observations: List<ClinicalObservationEntity> = emptyList(),
   val updates: List<ClinicalUpdateEntity> = emptyList(),
   val vitals: List<VitalEntity> = emptyList(),
+  val glasgowEvaluations: List<GlasgowEvaluationEntity> = emptyList(),
   val labResults: List<LabResultEntity> = emptyList()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PatientsViewModel(private val repository: MedicalRepository) : ViewModel() {
 
   private val _searchQuery = MutableStateFlow("")
@@ -40,8 +45,43 @@ class PatientsViewModel(private val repository: MedicalRepository) : ViewModel()
   private val _selectedPatientId = MutableStateFlow<Long?>(null)
   val selectedPatientId: StateFlow<Long?> = _selectedPatientId.asStateFlow()
 
-  private val _patientDetail = MutableStateFlow(PatientDetailState())
-  val patientDetail: StateFlow<PatientDetailState> = _patientDetail.asStateFlow()
+  val patientDetail: StateFlow<PatientDetailState> = _selectedPatientId
+    .flatMapLatest { pid ->
+      if (pid == null) {
+        flowOf(PatientDetailState())
+      } else {
+        combine(
+          repository.observePatient(pid),
+          repository.getObservationsForPatient(pid),
+          repository.getUpdatesForPatient(pid),
+          repository.getVitalsForPatient(pid),
+          repository.getGlasgowForPatient(pid),
+          repository.getLabResultsForPatient(pid)
+        ) { args ->
+          val patient = args[0] as PatientEntity?
+          @Suppress("UNCHECKED_CAST")
+          val observations = args[1] as List<ClinicalObservationEntity>
+          @Suppress("UNCHECKED_CAST")
+          val updates = args[2] as List<ClinicalUpdateEntity>
+          @Suppress("UNCHECKED_CAST")
+          val vitals = args[3] as List<VitalEntity>
+          @Suppress("UNCHECKED_CAST")
+          val glasgow = args[4] as List<GlasgowEvaluationEntity>
+          @Suppress("UNCHECKED_CAST")
+          val labs = args[5] as List<LabResultEntity>
+
+          PatientDetailState(
+            patient = patient,
+            observations = observations,
+            updates = updates,
+            vitals = vitals,
+            glasgowEvaluations = glasgow,
+            labResults = labs
+          )
+        }
+      }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PatientDetailState())
 
   fun setSearchQuery(query: String) {
     _searchQuery.value = query
@@ -49,28 +89,6 @@ class PatientsViewModel(private val repository: MedicalRepository) : ViewModel()
 
   fun selectPatient(patientId: Long?) {
     _selectedPatientId.value = patientId
-    if (patientId == null) {
-      _patientDetail.value = PatientDetailState()
-    } else {
-      viewModelScope.launch {
-        val patient = repository.getPatientById(patientId)
-        repository.getObservationsForPatient(patientId).collect { obs ->
-          repository.getUpdatesForPatient(patientId).collect { updates ->
-            repository.getVitalsForPatient(patientId).collect { vitals ->
-              repository.getLabResultsForPatient(patientId).collect { labs ->
-                _patientDetail.value = PatientDetailState(
-                  patient = patient,
-                  observations = obs,
-                  updates = updates,
-                  vitals = vitals,
-                  labResults = labs
-                )
-              }
-            }
-          }
-        }
-      }
-    }
   }
 
   fun createNewPatient(

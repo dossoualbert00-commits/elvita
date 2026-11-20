@@ -2,8 +2,10 @@ package com.example.ui.vitals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.entities.GlasgowEvaluationEntity
 import com.example.data.local.entities.PatientEntity
 import com.example.data.local.entities.VitalEntity
+import com.example.data.medical.BiologicalInterpretation
 import com.example.data.medical.MedicalInterpreter
 import com.example.data.medical.VitalsInterpretation
 import com.example.data.repository.MedicalRepository
@@ -30,6 +32,7 @@ enum class HistoryFilter(val label: String, val durationMillis: Long) {
 data class VitalsUiState(
   val patients: List<PatientEntity> = emptyList(),
   val vitalsList: List<VitalEntity> = emptyList(),
+  val glasgowList: List<GlasgowEvaluationEntity> = emptyList(),
   val selectedPatientId: Long? = null,
   val selectedFilter: HistoryFilter = HistoryFilter.LAST_7D,
   // Current Form inputs
@@ -44,7 +47,13 @@ data class VitalsUiState(
   val heightInput: String = "",
   val commentInput: String = "",
   val currentInterpretation: VitalsInterpretation? = null,
-  val isSavedSuccess: Boolean = false
+  val isSavedSuccess: Boolean = false,
+  // Score de Glasgow (sous-fonctionnalité indépendante dans Mesures, patient obligatoire)
+  val selectedGlasgowPatientId: Long? = null,
+  val glasgowEyeScore: Int = 4,
+  val glasgowVerbalScore: Int = 5,
+  val glasgowMotorScore: Int = 6,
+  val glasgowInterpretation: BiologicalInterpretation? = MedicalInterpreter.interpretGlasgow(4, 5, 6)
 )
 
 class VitalsViewModel(private val repository: MedicalRepository) : ViewModel() {
@@ -58,12 +67,16 @@ class VitalsViewModel(private val repository: MedicalRepository) : ViewModel() {
   val allVitals: StateFlow<List<VitalEntity>> = repository.getAllVitals()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+  val allGlasgow: StateFlow<List<GlasgowEvaluationEntity>> = repository.getAllGlasgowEvaluations()
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
   init {
     viewModelScope.launch {
-      combine(allPatients, allVitals) { patients, vitals ->
+      combine(allPatients, allVitals, allGlasgow) { patients, vitals, glasgow ->
         _state.value.copy(
           patients = patients,
-          vitalsList = vitals
+          vitalsList = vitals,
+          glasgowList = glasgow
         )
       }.collect { updated ->
         _state.value = updated
@@ -73,6 +86,74 @@ class VitalsViewModel(private val repository: MedicalRepository) : ViewModel() {
 
   fun onPatientSelected(patientId: Long?) {
     _state.value = _state.value.copy(selectedPatientId = patientId)
+  }
+
+  fun onGlasgowPatientSelected(patientId: Long?) {
+    _state.value = _state.value.copy(selectedGlasgowPatientId = patientId)
+  }
+
+  fun setGlasgowEye(score: Int) {
+    val s = _state.value
+    val interp = MedicalInterpreter.interpretGlasgow(score, s.glasgowVerbalScore, s.glasgowMotorScore)
+    _state.value = s.copy(glasgowEyeScore = score, glasgowInterpretation = interp)
+  }
+
+  fun setGlasgowVerbal(score: Int) {
+    val s = _state.value
+    val interp = MedicalInterpreter.interpretGlasgow(s.glasgowEyeScore, score, s.glasgowMotorScore)
+    _state.value = s.copy(glasgowVerbalScore = score, glasgowInterpretation = interp)
+  }
+
+  fun setGlasgowMotor(score: Int) {
+    val s = _state.value
+    val interp = MedicalInterpreter.interpretGlasgow(s.glasgowEyeScore, s.glasgowVerbalScore, score)
+    _state.value = s.copy(glasgowMotorScore = score, glasgowInterpretation = interp)
+  }
+
+  fun saveGlasgowEvaluation(
+    onSuccess: () -> Unit = {},
+    onPatientRequired: () -> Unit = {}
+  ) {
+    val s = _state.value
+    val patientId = s.selectedGlasgowPatientId
+    if (patientId == null) {
+      onPatientRequired()
+      return
+    }
+    val interp = s.glasgowInterpretation ?: MedicalInterpreter.interpretGlasgow(
+      s.glasgowEyeScore, s.glasgowVerbalScore, s.glasgowMotorScore
+    )
+    val total = s.glasgowEyeScore + s.glasgowVerbalScore + s.glasgowMotorScore
+    val now = System.currentTimeMillis()
+    val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRANCE)
+    val entity = GlasgowEvaluationEntity(
+      patientId = patientId,
+      eyeOpening = s.glasgowEyeScore,
+      verbalResponse = s.glasgowVerbalScore,
+      motorResponse = s.glasgowMotorScore,
+      totalScore = total,
+      alertLevel = interp.alertLevel,
+      interpretationText = interp.summary,
+      pedagogicalNote = interp.details.joinToString("\n"),
+      timestamp = now,
+      formattedDateTime = sdf.format(Date(now))
+    )
+    viewModelScope.launch {
+      repository.insertGlasgow(entity)
+      onSuccess()
+    }
+  }
+
+  fun deleteGlasgow(evaluation: GlasgowEvaluationEntity) {
+    viewModelScope.launch {
+      repository.deleteGlasgow(evaluation)
+    }
+  }
+
+  fun getFilteredGlasgowEvaluations(): List<GlasgowEvaluationEntity> {
+    val pid = _state.value.selectedGlasgowPatientId
+    val all = _state.value.glasgowList
+    return if (pid == null) all else all.filter { it.patientId == pid }
   }
 
   fun onFilterSelected(filter: HistoryFilter) {

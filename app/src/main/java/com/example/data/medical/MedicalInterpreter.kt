@@ -639,6 +639,7 @@ object MedicalInterpreter {
 
     // Caractérisation morphologique précise de l'anémie
     val qualifAnemie = when {
+      vgmValue == null && ccmhValue == null -> "d'indices érythrocytaires non précisés"
       isMicrocytic && isHypochromic -> "microcytaire hypochrome"
       isMicrocytic -> "microcytaire normochrome"
       isMacrocytic -> "macrocytaire"
@@ -887,7 +888,8 @@ object MedicalInterpreter {
         (if (isWhiteLineCytopenia) 1 else 0) +
         (if (isPlateletLineCytopenia) 1 else 0)
 
-    val isWhiteLineNormal = !isLeukopenia && !isHyperleukocytosis && !isNeutropenia && !isNeutrophilia && !isAgranulocytosis
+    val isWhiteLineNormal = !isLeukopenia && !isHyperleukocytosis && !isNeutropenia && !isNeutrophilia &&
+      !isAgranulocytosis && !isLymphocytosis && !isLymphopenia && !isMonocytosis && !isEosinophilia && !isBasophilia
     val isRedLineNormal = !isAnemia && !isPolyglobulia
     val isPlateletLineNormal = !isThrombopenia && !isThrombocytosis
 
@@ -896,26 +898,42 @@ object MedicalInterpreter {
       alert = "CRITICAL"
       val pancytoDesc = "SYNDROME DE PANCYTOPÉNIE : Diminution simultanée des 3 lignées sanguines principales (érythrocytaire, leucocytaire et plaquettaire)."
       details.add("⚠️ SYNDROME DE PANCYTOPÉNIE : Atteinte simultanée des 3 lignées hématopoïétiques (érythrocytaire, leucocytaire, plaquettaire).")
-      associationsList.add("⚠️ $pancytoDesc Évoquer en priorité une insuffisance médullaire centrale (aplasie médullaire, myélodysplasie, leucémie aiguë) ou une destruction périphérique (hypersplénisme majeur, syndrome d'activation macrophagique).")
+      associationsList.add("⚠️ $pancytoDesc Évoquer en priorité une atteinte médullaire centrale (aplasie, myélodysplasie, hémopathie) ou une destruction/séquestration périphérique (hypersplénisme, SAM).")
       identifiedAssociations.add("Pancytopénie touchant simultanément les trois lignées (rouge, blanche, plaquettaire)")
-      diagnosticOrientations.add("Pancytopénie centrale : Aplasie médullaire, Myélodysplasie, Leucémie aiguë (Myélogramme et BOM indispensables)")
-      diagnosticOrientations.add("Pancytopénie périphérique : Hypersplénisme (cirrhose, hypertension portale), Syndrome d'activation macrophagique (SAM)")
+      diagnosticOrientations.add("Orientation compatible avec une pancytopénie centrale : aplasie médullaire, myélodysplasie, hémopathie aiguë (myélogramme / BOM à discuter).")
+      diagnosticOrientations.add("Orientation compatible avec une pancytopénie périphérique : hypersplénisme, syndrome d'activation macrophagique (à confronter à la clinique).")
     }
     // 2. Syndrome de Bicytopénie (diminution de 2 lignées seulement)
     else if (cytopeniasCount == 2) {
       if (alert != "CRITICAL") alert = "MODERATE"
       details.add("⚠️ BICYTOPÉNIE : Atteinte combinée de deux lignées hématopoïétiques.")
-      val (bicytoDesc, preservedLine) = when {
-        isRedLineCytopenia && isPlateletLineCytopenia ->
-          Pair("Bicytopénie associant une anémie et une thrombopénie", "avec conservation de la lignée blanche")
-        isRedLineCytopenia && isWhiteLineCytopenia ->
-          Pair("Bicytopénie associant une anémie et une leucopénie", "avec conservation de la lignée plaquettaire")
-        else ->
-          Pair("Bicytopénie associant une leucopénie et une thrombopénie", "avec conservation de la lignée rouge")
+      val (bicytoDesc, thirdLineStatus) = when {
+        isRedLineCytopenia && isPlateletLineCytopenia -> {
+          val whiteStatus = when {
+            isHyperleukocytosis -> "associée à une hyperleucocytose (${input.gb} G/L) — sans leucopénie donc pas de pancytopénie"
+            !isWhiteLineNormal -> "avec perturbation qualitative/quantitative de la lignée blanche"
+            else -> "avec conservation de la lignée blanche"
+          }
+          Pair("Bicytopénie associant une anémie et une thrombopénie", whiteStatus)
+        }
+        isRedLineCytopenia && isWhiteLineCytopenia -> {
+          val pltStatus = when {
+            isThrombocytosis -> "associée à une thrombocytose (${input.plaquettes} G/L)"
+            else -> "avec conservation de la lignée plaquettaire"
+          }
+          Pair("Bicytopénie associant une anémie et une leucopénie", pltStatus)
+        }
+        else -> {
+          val redStatus = when {
+            isPolyglobulia -> "associée à une polyglobulie (${input.hb} g/dL)"
+            else -> "avec conservation de la lignée rouge"
+          }
+          Pair("Bicytopénie associant une leucopénie et une thrombopénie", redStatus)
+        }
       }
-      associationsList.add("⚠️ BICYTOPÉNIE : $bicytoDesc, $preservedLine. Nécessite une enquête hématologique rigoureuse avec examen du frottis sanguin.")
-      identifiedAssociations.add("$bicytoDesc ($preservedLine)")
-      diagnosticOrientations.add("Bicytopénie à explorer en milieu spécialisé : éliminer une hémopathie débutante, une carence sévère (B12/folates) ou une toxicité médicamenteuse.")
+      associationsList.add("⚠️ BICYTOPÉNIE : $bicytoDesc ($thirdLineStatus). Nécessite une enquête hématologique rigoureuse avec examen du frottis sanguin.")
+      identifiedAssociations.add("$bicytoDesc ($thirdLineStatus)")
+      diagnosticOrientations.add("Bicytopénie à explorer : profil pouvant orienter vers une hémopathie, une carence vitaminique sévère (B12/folates), un syndrome d'Evans ou une toxicité médicamenteuse.")
     }
     // 3. Anomalies Isolées (une seule lignée atteinte, les 2 autres conservées)
     else if (isAnemia && isWhiteLineNormal && isPlateletLineNormal) {
@@ -926,52 +944,52 @@ object MedicalInterpreter {
       identifiedAssociations.add("Leucopénie isolée, avec conservation des lignées rouge et plaquettaire")
     } else if (isThrombopenia && isRedLineNormal && isWhiteLineNormal) {
       identifiedAssociations.add("Thrombopénie isolée, sans anomalie significative des autres lignées sanguines")
-      diagnosticOrientations.add("Thrombopénie isolée : Éliminer d'emblée une fausse thrombopénie à l'EDTA par contrôle sur tube citraté avec examen du frottis.")
-      diagnosticOrientations.add("Étiologies : Purpura Thrombopénique Immunologique (PTI), thrombopénie médicamenteuse (héparine TIH), hépatopathie débutante.")
+      diagnosticOrientations.add("Thrombopénie isolée : éliminer en premier lieu une fausse thrombopénie à l'EDTA (tube citraté + frottis).")
+      diagnosticOrientations.add("Hypothèses compatibles à confronter à la clinique : PTI, origine médicamenteuse (dont héparine), infection ou hépatopathie.")
     } else if (isThrombocytosis && isRedLineNormal && isWhiteLineNormal) {
       identifiedAssociations.add("Thrombocytose isolée, avec conservation des lignées rouge et blanche")
     }
 
     // 4. Associations réactionnelles et complexes
     if (isAnemia && isMicrocytic && isThrombocytosis) {
-      associationsList.add("ASSOCIATION ANÉMIE MICROCYTAIRE + THROMBOCYTOSE RÉACTIONNELLE : Profil hautement évocateur d'une Carence Martiale (saignement digestif occulte ou gynécologique) ou d'une inflammation.")
+      associationsList.add("ASSOCIATION ANÉMIE MICROCYTAIRE + THROMBOCYTOSE RÉACTIONNELLE : Profil évocateur d'une carence martiale ou d'un syndrome inflammatoire chronique.")
       identifiedAssociations.add("Anémie microcytaire associée à une thrombocytose réactionnelle")
-      diagnosticOrientations.add("Carence martiale avérée : Doser Ferritine en priorité, rechercher l'origine du saignement (fibroscopie œso-gastro-duodénale et coloscopie).")
+      diagnosticOrientations.add("Profil compatible avec une carence martiale ou une anémie inflammatoire : doser ferritine et CRP et rechercher l'origine d'un éventuel saignement.")
     } else if (isAnemia && isMicrocytic && !isThrombocytosis) {
-      diagnosticOrientations.add("Anémie microcytaire : Doser Ferritine et CRP pour discriminer carence martiale (Ferritine basse) et anémie inflammatoire (Ferritine normale/haute, CRP élevée).")
-      diagnosticOrientations.add("Si bilan martial normal sans inflammation : Électrophorèse de l'hémoglobine (Thalassémie mineure hétérozygote).")
+      diagnosticOrientations.add("Anémie microcytaire : doser ferritine et CRP pour orienter entre carence martiale et syndrome inflammatoire.")
+      diagnosticOrientations.add("Si bilan martial et CRP normaux : discuter une électrophorèse de l'hémoglobine (trait thalassémique).")
     }
 
     if (isAnemia && isMacrocytic) {
-      diagnosticOrientations.add("Anémie macrocytaire : Doser Vitamine B12 et Folates sériques/érythrocytaires (carence d'apport ou maladie de Biermer).")
-      diagnosticOrientations.add("Rechercher un éthylisme chronique, une hypothyroïdie (TSH) ou un syndrome myélodysplasique chez le sujet âgé.")
+      diagnosticOrientations.add("Anémie macrocytaire : doser vitamine B12 et folates ; explorer une éventuelle imprégnation éthylique, hypothyroïdie (TSH) ou myélodysplasie.")
     }
 
     if (isAnemia && isRegenerative == true) {
-      diagnosticOrientations.add("Anémie régénérative aiguë : Bilan d'hémolyse (Haptoglobine effondrée, Bilirubine libre augmentée, LDH élevées, Test de Coombs direct).")
-      diagnosticOrientations.add("Éliminer une hémorragie aiguë extériorisée ou interne (saignement digestif, hématome profond).")
+      diagnosticOrientations.add("Anémie régénérative : discuter un bilan d'hémolyse (haptoglobine, bilirubine libre, LDH, Coombs) ou la recherche d'une hémorragie récente.")
     }
 
     if (isHyperleukocytosis && isNeutrophilia && isThrombocytosis) {
-      associationsList.add("ASSOCIATION HYPERLEUCOCYTOSE À PNN + THROMBOCYTOSE : Profil évocateur d'un Syndrome Inflammatoire ou Infectieux Bactérien aigu.")
-      identifiedAssociations.add("Hyperleucocytose à PNN associée à une thrombocytose (syndrome inflammatoire systémique)")
-      diagnosticOrientations.add("Infection bactérienne suppurée aiguë (pulmonaire, urinaire, abdominale, cutanée).")
-      diagnosticOrientations.add("Syndrome inflammatoire systémique sévère, nécrose tissulaire aiguë (infarctus du myocarde, pancréatite aiguë) ou corticothérapie.")
+      associationsList.add("ASSOCIATION HYPERLEUCOCYTOSE À PNN + THROMBOCYTOSE : Profil compatible avec un syndrome inflammatoire ou une réaction infectieuse bactérienne (sans pancytopénie ni bicytopénie).")
+      identifiedAssociations.add("Hyperleucocytose à PNN associée à une thrombocytose (profil réactionnel / inflammatoire)")
+      diagnosticOrientations.add("Profil compatible avec une infection bactérienne aiguë, un syndrome inflammatoire systémique ou une nécrose tissulaire (à confronter à la clinique).")
+    } else if (isHyperleukocytosis && isThrombocytosis) {
+      associationsList.add("ASSOCIATION HYPERLEUCOCYTOSE + THROMBOCYTOSE : Profil orientant vers un état réactionnel/inflammatoire ou un syndrome myéloprolifératif selon la clinique.")
+      identifiedAssociations.add("Hyperleucocytose associée à une thrombocytose (lignée rouge conservée)")
+      diagnosticOrientations.add("À confronter à la CRP, au frottis sanguin et au contexte clinique (infection, inflammation, contexte myéloprolifératif).")
     } else if (isNeutrophilia && isHyperleukocytosis) {
-      associationsList.add("ASSOCIATION HYPERLEUCOCYTOSE + POLYNUCLEOSE NEUTROPHILE : Profil de réaction inflammatoire ou infectieuse bactérienne aiguë.")
-      diagnosticOrientations.add("Infection bactérienne suppurée aiguë ou réaction inflammatoire systémique.")
+      associationsList.add("ASSOCIATION HYPERLEUCOCYTOSE + POLYNUCLÉOSE NEUTROPHILE : Profil de réaction inflammatoire ou infectieuse bactérienne aiguë.")
+      diagnosticOrientations.add("Profil compatible avec une infection bactérienne aiguë, une inflammation ou une corticothérapie (selon contexte).")
     }
 
     if (isAgranulocytosis) {
-      diagnosticOrientations.add("Agranulocytose aiguë médicamenteuse toxique ou immuno-allergique (antithyroïdiens de synthèse, psychotropes, antibiotiques).")
-      diagnosticOrientations.add("Aplasie médullaire aiguë ou hémopathie maligne.")
+      diagnosticOrientations.add("Agranulocytose : rechercher en urgence une cause médicamenteuse immuno-allergique/toxique ou une atteinte médullaire centrale.")
     }
 
     if (identifiedAssociations.isEmpty()) {
       if (isRedLineNormal && isWhiteLineNormal && isPlateletLineNormal) {
         identifiedAssociations.add("Aucune association pathologique : les trois lignées sont dans les limites usuelles de référence")
       } else {
-        identifiedAssociations.add("Anomalies sanguines isolées sans association syndromique multilignée complexe")
+        identifiedAssociations.add("Perturbation hématologique ciblée sans association syndromique de pancytopénie")
       }
     }
 
@@ -979,29 +997,40 @@ object MedicalInterpreter {
     // E. CONCLUSION ET INTERPRÉTATION GÉNÉRALE DE LA NFS (RÉDACTION MÉDICALE)
     // ──────────────────────────────────────────────────────────────────────────
     val professionalConclusion = when {
-      // 1. Pancytopénie
+      // 1. Pancytopénie (strictement les 3 lignées abaissées)
       cytopeniasCount >= 3 -> {
         val gbStr = if (input.gb != null) "${input.gb} G/L" else "leucopénie non chiffrée"
         val pltStr = if (input.plaquettes != null) "${input.plaquettes} G/L" else "thrombopénie non chiffrée"
         "La NFS a objectivé une pancytopénie associant une anémie $qualifAnemie, une leucopénie ($gbStr) et une thrombopénie ($pltStr)."
       }
 
-      // 2. Bicytopénie
+      // 2. Bicytopénie (strictement 2 lignées abaissées)
       cytopeniasCount == 2 -> {
         when {
-          isRedLineCytopenia && isPlateletLineCytopenia ->
-            "La NFS a objectivé une bicytopénie associant une anémie $qualifAnemie et une thrombopénie (${input.plaquettes ?: "-"} G/L), avec conservation de la lignée blanche."
-          isRedLineCytopenia && isWhiteLineCytopenia ->
-            "La NFS a objectivé une bicytopénie associant une anémie $qualifAnemie et une leucopénie (${input.gb ?: "-"} G/L), avec conservation de la lignée plaquettaire."
-          else ->
-            "La NFS a objectivé une bicytopénie associant une leucopénie (${input.gb ?: "-"} G/L) et une thrombopénie (${input.plaquettes ?: "-"} G/L), avec conservation de la lignée rouge."
+          isRedLineCytopenia && isPlateletLineCytopenia -> {
+            val thirdClause = if (isHyperleukocytosis) "associée à une hyperleucocytose (${input.gb} G/L) — sans baisse de la lignée blanche"
+            else if (!isWhiteLineNormal) "avec anomalie associée de la formule leucocytaire"
+            else "avec conservation de la lignée blanche"
+            "La NFS a objectivé une bicytopénie associant une anémie $qualifAnemie et une thrombopénie (${input.plaquettes ?: "-"} G/L), $thirdClause."
+          }
+          isRedLineCytopenia && isWhiteLineCytopenia -> {
+            val thirdClause = if (isThrombocytosis) "associée à une thrombocytose (${input.plaquettes} G/L)"
+            else "avec conservation de la lignée plaquettaire"
+            "La NFS a objectivé une bicytopénie associant une anémie $qualifAnemie et une leucopénie (${input.gb ?: "-"} G/L), $thirdClause."
+          }
+          else -> {
+            val thirdClause = if (isPolyglobulia) "associée à une polyglobulie (Hb : ${input.hb} g/dL)"
+            else "avec conservation de la lignée rouge"
+            "La NFS a objectivé une bicytopénie associant une leucopénie (${input.gb ?: "-"} G/L) et une thrombopénie (${input.plaquettes ?: "-"} G/L), $thirdClause."
+          }
         }
       }
 
       // 3. Anémie microcytaire + Thrombocytose réactionnelle
       isAnemia && isMicrocytic && isThrombocytosis -> {
         val ccmhText = if (isHypochromic) "hypochrome" else "normochrome"
-        "La NFS a objectivé une anémie microcytaire $ccmhText associée à une thrombocytose réactionnelle (${input.plaquettes} G/L), avec conservation de la lignée blanche."
+        val whiteClause = if (isWhiteLineNormal) ", avec conservation de la lignée blanche" else if (isHyperleukocytosis) ", associée à une hyperleucocytose (${input.gb} G/L)" else ""
+        "La NFS a objectivé une anémie microcytaire $ccmhText associée à une thrombocytose réactionnelle (${input.plaquettes} G/L)$whiteClause."
       }
 
       // 4. Hyperleucocytose isolée
@@ -1009,6 +1038,8 @@ object MedicalInterpreter {
         val pred = when {
           isNeutrophilia -> "à prédominance neutrophile"
           isLymphocytosis -> "à prédominance lymphocytaire"
+          isEosinophilia -> "avec hyperéosinophilie"
+          isMonocytosis -> "avec monocytose"
           else -> ""
         }
         val predText = if (pred.isNotEmpty()) " $pred" else ""
@@ -1056,17 +1087,28 @@ object MedicalInterpreter {
         "La NFS ne montre pas d'anomalie hématologique significative. Les trois lignées sanguines présentent des valeurs globalement dans les intervalles de référence."
       }
 
-      // 12. Autre combinaison
+      // 12. Autre combinaison (ex: Hyperleucocytose + Thrombocytose, Anémie + Hyperleucocytose...)
       else -> {
         val anomaliesList = mutableListOf<String>()
         if (isAnemia) anomaliesList.add("une anémie $qualifAnemie")
         if (isPolyglobulia) anomaliesList.add("une polyglobulie")
-        if (isHyperleukocytosis) anomaliesList.add("une hyperleucocytose")
+        if (isHyperleukocytosis) {
+          val detailWhite = if (isNeutrophilia) " à prédominance neutrophile" else if (isLymphocytosis) " à prédominance lymphocytaire" else ""
+          anomaliesList.add("une hyperleucocytose$detailWhite")
+        }
         if (isLeukopenia) anomaliesList.add("une leucopénie")
+        if (isNeutropenia && !isLeukopenia) anomaliesList.add("une neutropénie")
+        if (isNeutrophilia && !isHyperleukocytosis) anomaliesList.add("une polynucléose neutrophile")
+        if (isLymphocytosis && !isHyperleukocytosis) anomaliesList.add("une hyperlymphocytose")
+        if (isLymphopenia) anomaliesList.add("une lymphopénie")
+        if (isMonocytosis) anomaliesList.add("une monocytose")
+        if (isEosinophilia) anomaliesList.add("une hyperéosinophilie")
+        if (isBasophilia) anomaliesList.add("une basophilie")
         if (isThrombopenia) anomaliesList.add("une thrombopénie")
         if (isThrombocytosis) anomaliesList.add("une thrombocytose")
+        val redIntact = if (isRedLineNormal) " avec conservation de la lignée rouge" else ""
         if (anomaliesList.isNotEmpty()) {
-          "La NFS a objectivé ${anomaliesList.joinToString(" et ")}."
+          "La NFS a objectivé ${anomaliesList.joinToString(" et ")}$redIntact."
         } else {
           "La NFS présente des données incomplètes ou parcellaires ne permettant pas de conclure de manière définitive."
         }
@@ -1262,29 +1304,55 @@ object MedicalInterpreter {
     val details = mutableListOf<String>()
     val pearls = mutableListOf<String>()
     val metrics = mutableListOf<Pair<String, String>>()
+    val normalParams = mutableListOf<String>()
+    val abnormalParams = mutableListOf<String>()
+    val associations = mutableListOf<String>()
+    val orientations = mutableListOf<String>()
+    val mechanisms = mutableListOf<Pair<String, String>>()
+    val conclusionFindings = mutableListOf<String>()
     var alert = "NORMAL"
+
+    fun raise(sev: String) {
+      if (sev == "CRITICAL") alert = "CRITICAL"
+      else if (sev == "MODERATE" && alert != "CRITICAL") alert = "MODERATE"
+    }
 
     // Kaliémie
     if (input.k != null) {
       when {
         input.k < 3.0f -> {
-          alert = "CRITICAL"
+          raise("CRITICAL")
+          abnormalParams.add("Kaliémie : ${input.k} mmol/L [HYPOKALIÉMIE SÉVÈRE] (norme 3.5 - 5.0)")
+          conclusionFindings.add("une hypokaliémie sévère (${input.k} mmol/L)")
           details.add("Hypokaliémie sévère (${input.k} mmol/L) : risque d'arythmie ventriculaire létale (torsade de pointes) !")
+          orientations.add("Rechercher pertes digestives (diarrhées, vomissements), diurétiques de l'anse/thiazidiques ou transfert intracellulaire (insuline, bêta-2).")
           pearls.add("ECG 12 dérivations immédiat (onde U, sous-décalage ST, aplatissement de l'onde T). Recharge potassique IV lente sous surveillance scopique stricte.")
         }
-        input.k in 3.0f..3.4f -> {
-          if (alert != "CRITICAL") alert = "MODERATE"
+        input.k < 3.5f -> {
+          raise("MODERATE")
+          abnormalParams.add("Kaliémie : ${input.k} mmol/L [HYPOKALIÉMIE MODÉRÉE] (norme 3.5 - 5.0)")
+          conclusionFindings.add("une hypokaliémie modérée (${input.k} mmol/L)")
           details.add("Hypokaliémie modérée (${input.k} mmol/L) : pertes digestives (vomissements, diarrhées) ou diurétiques hypokaliémiants.")
+          orientations.add("Profil compatible avec des pertes digestives ou rénales (diurétiques, hyperaldostéronisme) ; réaliser un ECG.")
         }
-        input.k in 3.5f..5.0f -> details.add("Kaliémie physiologique normale (${input.k} mmol/L).")
-        input.k in 5.1f..5.9f -> {
-          if (alert != "CRITICAL") alert = "MODERATE"
+        input.k <= 5.0f -> {
+          normalParams.add("Kaliémie : ${input.k} mmol/L (norme 3.5 - 5.0)")
+          details.add("Kaliémie physiologique normale (${input.k} mmol/L).")
+        }
+        input.k < 6.0f -> {
+          raise("MODERATE")
+          abnormalParams.add("Kaliémie : ${input.k} mmol/L [HYPERKALIÉMIE MODÉRÉE] (norme 3.5 - 5.0)")
+          conclusionFindings.add("une hyperkaliémie modérée (${input.k} mmol/L)")
           details.add("Hyperkaliémie modérée (${input.k} mmol/L) : éliminer une fausse hyperkaliémie par hémolyse du tube de prélèvement.")
+          orientations.add("Éliminer une hémolyse pré-analytique ; évaluer la fonction rénale et les traitements (IEC, ARA2, spironolactone, AINS).")
         }
         else -> {
-          alert = "CRITICAL"
+          raise("CRITICAL")
+          abnormalParams.add("Kaliémie : ${input.k} mmol/L [HYPERKALIÉMIE SÉVÈRE] (norme 3.5 - 5.0)")
+          conclusionFindings.add("une hyperkaliémie sévère menaçante (${input.k} mmol/L)")
           details.add("HYPERKALIÉMIE SÉVÈRE (>= 6.0 mmol/L) : URGENCE VITALE IMMÉDIATE (risque d'asystolie et fibrillation ventriculaire) !")
-          pearls.add("ECG immédiat (ondes T pointues symétriques, disparition de l'onde P, élargissement du QRS). Traitement : 1 ampoule de Gluconate de Calcium IVD en 2 min, Insuline rapide + G10%, Salbutamol en nébulisation, résines échangeuses.")
+          orientations.add("Urgence hyperkaliémique compatible avec une insuffisance rénale aiguë, rhabdomyolyse ou surdosage médicamenteux — ECG sans délai.")
+          pearls.add("ECG immédiat (ondes T pointues symétriques, disparition de l'onde P, élargissement du QRS). Traitement : Gluconate de Calcium IV, Insuline + Glucose, Salbutamol nébulisé.")
         }
       }
     }
@@ -1293,25 +1361,91 @@ object MedicalInterpreter {
     if (input.na != null) {
       when {
         input.na < 125f -> {
-          alert = "CRITICAL"
+          raise("CRITICAL")
+          abnormalParams.add("Natrémie : ${input.na} mmol/L [HYPONATRÉMIE SÉVÈRE] (norme 135 - 145)")
+          conclusionFindings.add("une hyponatrémie profonde (${input.na} mmol/L)")
           details.add("Hyponatrémie sévère (${input.na} mmol/L) : risque d'œdème cérébral aigu, convulsions et coma.")
-          pearls.add("Attention au piège : Ne jamais corriger trop rapidement une hyponatrémie chronique ! Vitesse limite absolue : 8 à 10 mmol/L par 24h pour prévenir la myélinolyse centro-pontine.")
+          orientations.add("Évaluer l'état d'hydratation extracellulaire (déplétion, euvolémie SIADH, inflation œdémateuse) et l'osmolarité plasmatique/urinaire.")
+          pearls.add("Attention au piège : Ne jamais corriger trop rapidement une hyponatrémie chronique ! Vitesse limite : 8 à 10 mmol/L par 24h pour prévenir la myélinolyse centro-pontine.")
         }
-        input.na in 125f..134f -> {
-          if (alert != "CRITICAL") alert = "MODERATE"
+        input.na < 135f -> {
+          raise("MODERATE")
+          abnormalParams.add("Natrémie : ${input.na} mmol/L [HYPONATRÉMIE MODÉRÉE] (norme 135 - 145)")
+          conclusionFindings.add("une hyponatrémie modérée (${input.na} mmol/L)")
           details.add("Hyponatrémie modérée (${input.na} mmol/L) : à évaluer selon la volémie extracellulaire (déshydratation, SIADH, insuffisance cardiaque).")
+          orientations.add("Hyponatrémie orientant vers un trouble de l'hydratation intracellulaire (SIADH, diurétiques thiazidiques, insuffisance cardiaque ou hépatique).")
         }
-        input.na in 135f..145f -> details.add("Natrémie normale (${input.na} mmol/L).")
-        input.na > 150f -> {
-          alert = "CRITICAL"
+        input.na <= 145f -> {
+          normalParams.add("Natrémie : ${input.na} mmol/L (norme 135 - 145)")
+          details.add("Natrémie normale (${input.na} mmol/L).")
+        }
+        input.na <= 150f -> {
+          raise("MODERATE")
+          abnormalParams.add("Natrémie : ${input.na} mmol/L [HYPERNATRÉMIE MODÉRÉE] (norme 135 - 145)")
+          conclusionFindings.add("une hypernatrémie modérée (${input.na} mmol/L)")
+          details.add("Hypernatrémie modérée (${input.na} mmol/L) : déshydratation intracellulaire débutante (déficit d'apport hydrique ou pertes hydriques non compensées).")
+          orientations.add("Rechercher une perte d'eau libre (fièvre, polyurie osmotique, diabète insipide) ou un défaut d'accès à l'eau chez le sujet âgé.")
+        }
+        else -> {
+          raise("CRITICAL")
+          abnormalParams.add("Natrémie : ${input.na} mmol/L [HYPERNATRÉMIE SÉVÈRE] (norme 135 - 145)")
+          conclusionFindings.add("une hypernatrémie sévère (${input.na} mmol/L)")
           details.add("Hypernatrémie sévère (> 150 mmol/L) : témoin formel d'une déshydratation intracellulaire par manque d'eau pure.")
+          orientations.add("Déshydratation intracellulaire sévère exposant à des complications neurologiques ; correction progressive par soluté hypotonique sous contrôle ionique.")
         }
+      }
+    }
+
+    // Chlorémie
+    if (input.cl != null) {
+      when {
+        input.cl < 98f -> {
+          raise("MODERATE")
+          abnormalParams.add("Chlorémie : ${input.cl} mmol/L [HYPOCHLORÉMIE] (norme 98 - 106)")
+          details.add("Hypochlorémie (${input.cl} mmol/L) : compatible avec des vomissements répétés, aspiration gastrique ou alcalose métabolique.")
+        }
+        input.cl > 106f -> {
+          raise("MODERATE")
+          abnormalParams.add("Chlorémie : ${input.cl} mmol/L [HYPERCHLORÉMIE] (norme 98 - 106)")
+          details.add("Hyperchlorémie (${input.cl} mmol/L) : fréquente après perfusion abondante de NaCl 0,9% ou acidose métabolique hyperchlorémique (diarrhée, tubulopathie).")
+        }
+        else -> normalParams.add("Chlorémie : ${input.cl} mmol/L (norme 98 - 106)")
+      }
+    }
+
+    // Bicarbonates (HCO3-)
+    if (input.hco3 != null) {
+      when {
+        input.hco3 < 15f -> {
+          raise("CRITICAL")
+          abnormalParams.add("Réserve alcaline HCO3- : ${input.hco3} mmol/L [BAISSE SÉVÈRE] (norme 22 - 28)")
+          conclusionFindings.add("une baisse sévère des bicarbonates (${input.hco3} mmol/L)")
+          details.add("Bicarbonates très abaissés (${input.hco3} mmol/L) : acidose métabolique sévère (ou compensation d'alcalose respiratoire) nécessitant une gazométrie artérielle.")
+        }
+        input.hco3 < 22f -> {
+          raise("MODERATE")
+          abnormalParams.add("Réserve alcaline HCO3- : ${input.hco3} mmol/L [DIMINUÉE] (norme 22 - 28)")
+          conclusionFindings.add("une diminution des bicarbonates (${input.hco3} mmol/L)")
+          details.add("Bicarbonates diminués (${input.hco3} mmol/L) : évoquer une acidose métabolique à confirmer sur les gaz du sang.")
+        }
+        input.hco3 > 32f -> {
+          raise("MODERATE")
+          abnormalParams.add("Réserve alcaline HCO3- : ${input.hco3} mmol/L [ÉLEVÉE] (norme 22 - 28)")
+          conclusionFindings.add("une élévation des bicarbonates (${input.hco3} mmol/L)")
+          details.add("Bicarbonates élevés (${input.hco3} mmol/L) : alcalose métabolique (vomissements, diurétiques) ou rétention compensatrice d'une hypercapnie chronique (BPCO).")
+        }
+        else -> normalParams.add("Réserve alcaline HCO3- : ${input.hco3} mmol/L (norme 22 - 28)")
       }
     }
 
     // Créatinine & DFG (Cockcroft-Gault)
     if (input.creat != null) {
       val cr = input.creat
+      if (cr > 110f) {
+        abnormalParams.add("Créatininémie : $cr µmol/L [ÉLEVÉE] (norme 60 - 110)")
+      } else {
+        normalParams.add("Créatininémie : $cr µmol/L (norme 60 - 110)")
+      }
       if (input.age != null && input.weightKg != null && input.age > 0 && input.weightKg > 0) {
         var cl = ((140 - input.age) * input.weightKg) / (cr * 0.814f)
         if (input.isFemale) cl *= 0.85f
@@ -1320,32 +1454,57 @@ object MedicalInterpreter {
 
         val stage = when {
           cl >= 90f -> "Stade 1 : Fonction rénale normale ou conservée"
-          cl in 60f..89.9f -> "Stade 2 : Insuffisance rénale légère"
+          cl in 60f..89.9f -> "Stade 2 : Baisse légère du DFG ($clStr)"
           cl in 30f..59.9f -> {
-            if (alert != "CRITICAL") alert = "MODERATE"
+            raise("MODERATE")
+            conclusionFindings.add("une altération modérée de la fonction rénale (DFG estimé $clStr)")
             "Stade 3 : Insuffisance rénale modérée (adapter les posologies médicamenteuses)"
           }
           cl in 15f..29.9f -> {
-            alert = "CRITICAL"
+            raise("CRITICAL")
+            conclusionFindings.add("une insuffisance rénale sévère (DFG estimé $clStr)")
             "Stade 4 : Insuffisance rénale sévère (surveillance néphrologique rapprochée)"
           }
           else -> {
-            alert = "CRITICAL"
-            "Stade 5 : Insuffisance rénale terminale (préparation ou indication de dialyse)"
+            raise("CRITICAL")
+            conclusionFindings.add("une insuffisance rénale terminale ou aiguë critique (DFG estimé $clStr)")
+            "Stade 5 : Insuffisance rénale terminale (avis néphrologique urgent)"
           }
         }
         details.add("Fonction rénale : DFG estimé à $clStr ($stage).")
+      } else if (cr > 150f) {
+        raise("CRITICAL")
+        conclusionFindings.add("une élévation majeure de la créatininémie ($cr µmol/L)")
+        details.add("Créatininémie franchement élevée ($cr µmol/L) : renseigner âge et poids pour calculer la clairance.")
+      } else if (cr > 110f) {
+        raise("MODERATE")
+        conclusionFindings.add("une élévation modérée de la créatininémie ($cr µmol/L)")
+        details.add("Créatininémie augmentée ($cr µmol/L) : altération probable de la filtration glomérulaire.")
       }
     }
 
-    // Ratio Urée/Créatinine (distinction fonctionnelle vs organique)
+    // Urée isolée et Ratio Urée/Créatinine
+    if (input.urea != null) {
+      if (input.urea > 7.5f) {
+        if (input.urea > 20f) raise("CRITICAL") else raise("MODERATE")
+        abnormalParams.add("Urée sanguine : ${input.urea} mmol/L [ÉLEVÉE] (norme 2.5 - 7.5)")
+        if (input.creat == null) conclusionFindings.add("une élévation de l'urémie (${input.urea} mmol/L)")
+      } else {
+        normalParams.add("Urée sanguine : ${input.urea} mmol/L (norme 2.5 - 7.5)")
+      }
+    }
+
     if (input.urea != null && input.creat != null && input.creat > 0) {
       val ratio = (input.urea * 1000f) / input.creat
       metrics.add("Ratio Urée / Créatinine" to String.format(Locale.FRANCE, "%.1f", ratio))
-      if (ratio > 100f) {
-        details.add("Rapport Urée/Créat élevé (> 100) : orientation très forte vers une insuffisance rénale aiguë FONCTIONNELLE (pré-rénale par hypoperfusion rénale, déshydratation ou bas débit).")
+      if (ratio > 100f && (input.creat > 110f || input.urea > 7.5f)) {
+        associations.add("Rapport Urée/Créatinine élevé (> 100) en faveur d'une hypoperfusion pré-rénale / IRA fonctionnelle.")
+        details.add("Rapport Urée/Créat élevé (> 100) : orientation forte vers une insuffisance rénale aiguë FONCTIONNELLE (déshydratation, hypovolémie, bas débit) ou hémorragie digestive haute.")
+        orientations.add("Devant un profil d'IRA fonctionnelle : vérifier la volémie, les diurétiques, l'état hémodynamique et prescrire un ionogramme urinaire.")
       } else if (ratio in 40f..80f && input.creat > 120f) {
-        details.add("Rapport Urée/Créat intermédiaire (< 80) : orientation vers une atteinte rénale ORGANIQUE parenchymateuse (nécrose tubulaire aiguë, néphropathie glomérulaire).")
+        associations.add("Rapport Urée/Créatinine < 80 compatible avec une atteinte rénale parenchymateuse organique.")
+        details.add("Rapport Urée/Créat intermédiaire (< 80) : orientation vers une atteinte rénale ORGANIQUE parenchymateuse (nécrose tubulaire aiguë, glomérulopathie).")
+        orientations.add("Devant une atteinte organique suspectée : échographie rénale (éliminer obstacle), protéinurie et ECBU.")
       }
     }
 
@@ -1355,10 +1514,60 @@ object MedicalInterpreter {
       val taFormatted = String.format(Locale.FRANCE, "%.1f mmol/L", ta)
       metrics.add("Trou Anionique Plasmatique" to taFormatted)
       if (ta > 16f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
-        details.add("Trou anionique élevé ($taFormatted, normale 12 ± 4) : signe une acidose métabolique à trou anionique augmenté (causes KUSSMAUL : Cétoacidose, Urémie rénale, Salicylés, Méthanol, Acidose Lactique, Ethylène glycol).")
+        raise("MODERATE")
+        associations.add("Acidose métabolique à trou anionique plasmatique augmenté ($taFormatted).")
+        conclusionFindings.add("un trou anionique élevé ($taFormatted)")
+        details.add("Trou anionique élevé ($taFormatted, normale 12 ± 4) : signe une acidose métabolique à trou anionique augmenté (cétoacidose, acidose lactique, urémie, toxiques).")
+        orientations.add("Doser lactatémie veineuse/artérielle, cétonémie et gaz du sang artériels.")
       }
     }
+
+    // Glycémie veineuse éventuelle
+    if (input.glycemia != null) {
+      when {
+        input.glycemia < 0.70f -> {
+          raise("CRITICAL")
+          abnormalParams.add("Glycémie : ${input.glycemia} g/L [HYPOGLYCÉMIE] (norme 0.70 - 1.10)")
+          conclusionFindings.add("une hypoglycémie (${input.glycemia} g/L)")
+          details.add("Hypoglycémie biologique (${input.glycemia} g/L) : risque neuroglucopénique immédiat.")
+        }
+        input.glycemia > 2.0f -> {
+          raise("MODERATE")
+          abnormalParams.add("Glycémie : ${input.glycemia} g/L [HYPERGLYCÉMIE FRANCHE] (norme 0.70 - 1.10)")
+          conclusionFindings.add("une hyperglycémie franche (${input.glycemia} g/L)")
+          details.add("Hyperglycémie importante (${input.glycemia} g/L) : rechercher une cétonurie ou une décompensation diabétique (acidocétose, hyperosmolarité).")
+        }
+        input.glycemia > 1.26f -> {
+          raise("MODERATE")
+          abnormalParams.add("Glycémie : ${input.glycemia} g/L [HYPERGLYCÉMIE MODÉRÉE] (norme 0.70 - 1.10)")
+          details.add("Glycémie supérieure au seuil diabétique à jeun (${input.glycemia} g/L).")
+        }
+        else -> normalParams.add("Glycémie : ${input.glycemia} g/L (norme 0.70 - 1.10)")
+      }
+    }
+
+    val generalConclusion = when {
+      conclusionFindings.isEmpty() && details.isEmpty() ->
+        "Paramètres hydro-électrolytiques ou rénaux insuffisamment renseignés pour formuler une conclusion."
+      conclusionFindings.isEmpty() ->
+        "Le bilan ionique et rénal ne montre pas d'anomalie significative ; les électrolytes et la fonction glomérulaire évalués sont dans les normes de référence."
+      else ->
+        "Le bilan hydro-électrolytique et rénal a objectivé ${conclusionFindings.joinToString(", ")}, à confronter sans délai à l'état d'hydratation, à la diurèse et au tracé ECG si dyskaliémie."
+    }
+
+    if (orientations.isEmpty() && alert == "NORMAL") {
+      orientations.add("Équilibre hydro-électrolytique et filtration glomérulaire conservés sur les paramètres saisis.")
+    }
+    if (associations.isEmpty()) {
+      associations.add(if (alert == "NORMAL") "Aucune dyshydratation ni trouble acido-basique détecté." else "Anomalie(s) ionique(s) ou rénale(s) à corréler à la volémie et au ionogramme urinaire.")
+    }
+
+    mechanisms.add("Kaliémie (K+)" to "Principal cation intracellulaire assurant la repolarisation membranaire myocardique. Toute dyskaliémie expose à des troubles du rythme cardiaque potentiellement létaux.")
+    mechanisms.add("Natrémie (Na+)" to "Reflet de l'osmolarité efficace et de l'état d'hydratation INTRACELLULAIRE (une hyponatrémie traduit un excès relatif d'eau ; une hypernatrémie un déficit d'eau).")
+    mechanisms.add("Créatinine & Clairance" to "Produit du métabolisme musculaire éliminé quasi exclusivement par filtration glomérulaire. Son élévation traduit une baisse du DFG ; interpréter selon l'âge, le poids et le caractère aigu vs chronique.")
+    mechanisms.add("Bicarbonates & Trou Anionique" to "Le système tampon HCO3-/CO2 régule le pH. Un trou anionique > 16 mmol/L signale l'accumulation d'acides organiques non mesurés (lactates, corps cétoniques, toxiques).")
+
+    val caveat = "RAPPEL CLINIQUE : L'ionogramme et la créatinine doivent toujours être confrontés aux antécédents rénaux antérieurs (créatinine de base), à la prise de néphrotoxiques/diurétiques, à l'examen de l'état d'hydratation et à la diurèse horaire."
 
     return BiologicalInterpretation(
       alertLevel = alert,
@@ -1366,7 +1575,15 @@ object MedicalInterpreter {
       summary = if (alert == "CRITICAL") "Anomalie hydro-électrolytique ou rénale critique." else if (alert == "MODERATE") "Déséquilibre ionique ou rénal à explorer." else "Ionogramme et fonction rénale dans les normes.",
       details = details,
       clinicalPearls = pearls,
-      computedMetrics = metrics
+      computedMetrics = metrics,
+      generalAppreciation = generalConclusion,
+      normalParameters = normalParams,
+      abnormalParameters = abnormalParams,
+      identifiedAssociations = associations,
+      diagnosticOrientations = orientations,
+      generalConclusion = generalConclusion,
+      clinicalContextCaveat = caveat,
+      pedagogicalMechanisms = mechanisms
     )
   }
 
@@ -1375,73 +1592,183 @@ object MedicalInterpreter {
     val details = mutableListOf<String>()
     val pearls = mutableListOf<String>()
     val metrics = mutableListOf<Pair<String, String>>()
+    val normalParams = mutableListOf<String>()
+    val abnormalParams = mutableListOf<String>()
+    val associations = mutableListOf<String>()
+    val orientations = mutableListOf<String>()
+    val mechanisms = mutableListOf<Pair<String, String>>()
+    val conclusionFindings = mutableListOf<String>()
     var alert = "NORMAL"
 
     var hasCytolysis = false
     var hasCholestasis = false
 
-    // Cytolyse
+    fun raise(sev: String) {
+      if (sev == "CRITICAL") alert = "CRITICAL"
+      else if (sev == "MODERATE" && alert != "CRITICAL") alert = "MODERATE"
+    }
+
+    // Cytolyse (ALAT / ASAT)
     if (input.alat != null && input.asat != null) {
       val deRitis = if (input.alat > 0) input.asat / input.alat else 0f
       metrics.add("Rapport De Ritis (ASAT / ALAT)" to String.format(Locale.FRANCE, "%.2f", deRitis))
 
       if (input.alat > 150f || input.asat > 150f) {
-        alert = "CRITICAL"
+        raise("CRITICAL")
         hasCytolysis = true
+        abnormalParams.add("ASAT/ALAT : ${input.asat}/${input.alat} UI/L [CYTOLYSE MAJEURE]")
+        conclusionFindings.add("une cytolyse hépatique majeure (ASAT ${input.asat} / ALAT ${input.alat} UI/L)")
         details.add("CYTOLYSE HÉPATIQUE MAJEURE (> 3 à 5N) : atteinte aiguë des hépatocytes. Évoquer une hépatite virale aiguë (A, B, C, E), une hépatite médicamenteuse toxique (Paracétamol), une ischémie hépatique aiguë (foie de choc) ou une migration lithiasique brutale.")
-        pearls.add("Doser impérativement le Taux de Prothrombine (TP) et le Facteur V : un TP < 50% signe une insuffisance hépatocellulaire aiguë grave (hépatite fulminante) imposant le transfert en réanimation hépatologique !")
+        orientations.add("Devant une cytolyse majeure : sérologies virales (VHA, VHB, VHC, VHE), dosage du paracétamol, bilan d'hémostase (TP, Facteur V) et échographie hépatobiliaire.")
+        pearls.add("Doser impérativement le Taux de Prothrombine (TP) et le Facteur V : un TP < 50% signe une insuffisance hépatocellulaire aiguë grave (hépatite fulminante) imposant un avis en réanimation hépatologique !")
       } else if (input.alat > 45f || input.asat > 35f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
+        raise("MODERATE")
         hasCytolysis = true
-        val etio = if (deRitis > 2.0f) "prédominance ASAT (De Ritis > 2), très évocatrice d'hépatopathie alcoolique aiguë ou de cirrhose." else "prédominance ALAT, évocatrice de stéato-hépatite non alcoolique (NASH/MASH) ou hépatite virale chronique."
+        abnormalParams.add("ASAT/ALAT : ${input.asat}/${input.alat} UI/L [CYTOLYSE MODÉRÉE]")
+        conclusionFindings.add("une cytolyse hépatique modérée (ASAT ${input.asat} / ALAT ${input.alat} UI/L)")
+        val etio = if (deRitis > 2.0f) "prédominance ASAT (De Ritis > 2), profil compatible avec une hépatopathie alcoolique, cirrhose ou origine musculaire (CPK)" else "prédominance ALAT, profil compatible avec une stéatose métabolique (MASH/NASH) ou hépatopathie virale/médicamenteuse"
         details.add("Cytolyse hépatique modérée ($etio).")
+        orientations.add("Rechercher prises médicamenteuses, alcool, syndrome métabolique, sérologies virales et échographie hépatique.")
       } else {
+        normalParams.add("Transaminases ASAT/ALAT : ${input.asat}/${input.alat} UI/L")
         details.add("Transaminases (ASAT/ALAT) physiologiques sans cytolyse.")
+      }
+    } else {
+      input.alat?.let {
+        if (it > 45f) {
+          raise(if (it > 150f) "CRITICAL" else "MODERATE")
+          hasCytolysis = true
+          abnormalParams.add("ALAT : $it UI/L [ÉLEVÉE]")
+          conclusionFindings.add("une élévation de l'ALAT ($it UI/L)")
+          details.add("Élévation des ALAT ($it UI/L) témoignant d'une cytolyse hépatocytaire.")
+        } else normalParams.add("ALAT : $it UI/L")
+      }
+      input.asat?.let {
+        if (it > 35f) {
+          raise(if (it > 150f) "CRITICAL" else "MODERATE")
+          hasCytolysis = true
+          abnormalParams.add("ASAT : $it UI/L [ÉLEVÉE]")
+          conclusionFindings.add("une élévation de l'ASAT ($it UI/L)")
+          details.add("Élévation des ASAT ($it UI/L) : origine hépatique ou musculaire (vérifier ALAT et CPK).")
+        } else normalParams.add("ASAT : $it UI/L")
       }
     }
 
-    // Cholestase
-    if (input.pal != null && input.ggt != null) {
-      if (input.pal > 200f || input.ggt > 100f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
-        hasCholestasis = true
-        details.add("SYNDROME DE CHOLESTASE BIOLOGIQUE (PAL et GGT augmentées) : obstacle sur les voies biliaires (lithiase de la VBP, cancer tête pancréas) ou cholestase intrahépatique (médicamenteuse, cirrhose biliaire primitive).")
-        pearls.add("Une élévation isolée des GGT sans élévation des PAL n'est PAS un syndrome de cholestase : elle traduit une induction enzymatique (alcool, médicaments inducteurs type rifampicine, antiépileptiques) ou une stéatose.")
+    // Cholestase (PAL / GGT)
+    val palHigh = input.pal != null && input.pal > 130f
+    val ggtHigh = input.ggt != null && input.ggt > 50f
+    if (palHigh && ggtHigh) {
+      raise("MODERATE")
+      hasCholestasis = true
+      abnormalParams.add("PAL (${input.pal} UI/L) + GGT (${input.ggt} UI/L) [CHOLESTASE]")
+      conclusionFindings.add("un syndrome de cholestase biologique (PAL ${input.pal}, GGT ${input.ggt} UI/L)")
+      associations.add("Association élévation PAL + GGT confirmant une cholestase d'origine hépatobiliaire.")
+      details.add("SYNDROME DE CHOLESTASE BIOLOGIQUE (PAL et GGT augmentées) : obstacle sur les voies biliaires (lithiase VBP, compression) ou cholestase intrahépatique (médicamenteuse, cholangite).")
+      orientations.add("Échographie abdominale en 1ère intention pour rechercher une dilatation des voies biliaires intra- ou extrahépatiques.")
+    } else {
+      if (input.pal != null) {
+        if (palHigh) {
+          raise("MODERATE")
+          abnormalParams.add("PAL : ${input.pal} UI/L [ÉLEVÉES]")
+          conclusionFindings.add("une élévation isolée des PAL (${input.pal} UI/L)")
+          details.add("Élévation isolée des PAL sans GGT élevée : évoquer une origine osseuse (Paget, métastase osseuse, croissance) autant que biliaire.")
+        } else normalParams.add("PAL : ${input.pal} UI/L")
+      }
+      if (input.ggt != null) {
+        if (ggtHigh) {
+          raise("MODERATE")
+          abnormalParams.add("GGT : ${input.ggt} UI/L [ÉLEVÉES]")
+          conclusionFindings.add("une élévation isolée des GGT (${input.ggt} UI/L)")
+          details.add("Élévation isolée des GGT (${input.ggt} UI/L) : sans élévation des PAL, oriente vers une induction enzymatique (alcool, inducteurs médicamenteux) ou stéatose hépatique.")
+          pearls.add("Une élévation isolée des GGT sans élévation des PAL n'est PAS un syndrome de cholestase : elle traduit souvent une induction enzymatique (alcool, rifampicine, antiépileptiques) ou une stéatose.")
+        } else normalParams.add("GGT : ${input.ggt} UI/L")
       }
     }
 
     // Bilirubine
     if (input.biliTotal != null) {
       if (input.biliTotal > 50f) {
-        alert = "CRITICAL"
+        raise("CRITICAL")
+        abnormalParams.add("Bilirubine totale : ${input.biliTotal} µmol/L [ICTÈRE FRANC]")
+        conclusionFindings.add("une hyperbilirubinémie majeure / ictère franc (${input.biliTotal} µmol/L)")
         details.add("Ictère franc clinique (Bilirubine totale ${input.biliTotal} µmol/L).")
         if (input.biliConj != null && input.biliConj > (input.biliTotal * 0.5f)) {
-          details.add("Ictère à prédominance CONJUGUÉE (directe) : confirme l'obstacle biliaire ou l'atteinte hépato-cellulaire sévère. Échographie abdominale urgente pour explorer les voies biliaires !")
+          details.add("Ictère à prédominance CONJUGUÉE (directe) : confirme l'obstacle biliaire ou l'atteinte hépatocellulaire sévère. Échographie abdominale urgente pour explorer les voies biliaires !")
+          orientations.add("Ictère à bilirubine conjuguée : éliminer une angiocholite (fièvre + douleur + ictère) ou un obstacle tumoral/lithiasique biliaire.")
         } else {
-          details.add("Ictère à prédominance LIBRE (non conjuguée) : évoquer une hémolyse aiguë ou la maladie bénigne de Gilbert (ictère de jeûne ou de fatigue).")
+          details.add("Ictère à prédominance LIBRE (non conjuguée) : évoquer une hémolyse aiguë (NFS, réticulocytes, haptoglobine, LDH) ou la maladie bénigne de Gilbert.")
         }
       } else if (input.biliTotal > 21f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
+        raise("MODERATE")
+        abnormalParams.add("Bilirubine totale : ${input.biliTotal} µmol/L [SUBICTÈRE]")
+        conclusionFindings.add("une hyperbilirubinémie modérée (${input.biliTotal} µmol/L)")
         details.add("Hyperbilirubinémie modérée / subictère (${input.biliTotal} µmol/L).")
+      } else {
+        normalParams.add("Bilirubine totale : ${input.biliTotal} µmol/L")
       }
     }
 
     // Lipase
     if (input.lipase != null) {
       if (input.lipase > 180f) {
-        alert = "CRITICAL"
-        details.add("LIPASÉMIE ÉLEVÉE (> 3N : ${input.lipase} UI/L) : DIAGNOSTIC DE PANCRÉATITE AIGUË AFFIRMÉ (associée à une douleur épigastrique transfixiante typique, aucun scanner n'est requis pour poser le diagnostic initial).")
-        pearls.add("Le scanner abdominal injecté dans la pancréatite aiguë ne doit être réalisé qu'à 72-96h du début des douleurs pour évaluer la nécrose (score de Balthazar).")
+        raise("CRITICAL")
+        abnormalParams.add("Lipasémie : ${input.lipase} UI/L [> 3N — CRITIQUE]")
+        conclusionFindings.add("une hyperlipasémie > 3N (${input.lipase} UI/L) compatible avec une pancréatite aiguë")
+        details.add("LIPASÉMIE ÉLEVÉE (> 3N : ${input.lipase} UI/L) : DIAGNOSTIC DE PANCRÉATITE AIGUË AFFIRMÉ si associée à une douleur épigastrique typique.")
+        orientations.add("Rechercher les deux étiologies principales (80% des cas) : lithiase biliaire (échographie précoce) et alcool ; évaluer la gravité (SIRS, hémodynamique).")
+        pearls.add("Le scanner abdominal injecté dans la pancréatite aiguë est idéalement réalisé à 72-96h du début des douleurs pour évaluer la nécrose.")
+      } else if (input.lipase > 60f) {
+        raise("MODERATE")
+        abnormalParams.add("Lipasémie : ${input.lipase} UI/L [MODÉRÉMENT ÉLEVÉE]")
+        conclusionFindings.add("une élévation modérée de la lipasémie (${input.lipase} UI/L < 3N)")
+        details.add("Lipasémie modérément élevée (< 3N : ${input.lipase} UI/L) : non spécifique d'une pancréatite (insuffisance rénale, ulcère perforé, cholécystite, occlusion).")
+      } else {
+        normalParams.add("Lipasémie : ${input.lipase} UI/L")
       }
     }
+
+    if (hasCytolysis && hasCholestasis) {
+      associations.add("Atteinte hépatique mixte associant cytolyse hépatocytaire et cholestase biologique (fréquent lors d'une migration lithiasique ou hépatite toxique).")
+    }
+
+    val generalConclusion = when {
+      conclusionFindings.isEmpty() && details.isEmpty() ->
+        "Bilan hépatique et pancréatique non interprétable faute de paramètres saisis."
+      conclusionFindings.isEmpty() ->
+        "Le bilan hépatopancréatique est dans les valeurs de référence, sans cytolyse, sans cholestase ni hyperlipasémie."
+      else ->
+        "Le bilan hépatopancréatique a objectivé ${conclusionFindings.joinToString(", ")}, à confronter à l'examen clinique abdominal (ictère, hépatomégalie, douleur biliaire/épigastrique), au TP et à l'échographie."
+    }
+
+    if (orientations.isEmpty() && alert == "NORMAL") {
+      orientations.add("Absence d'anomalie hépatobiliaire ou pancréatique biologique décelée.")
+    }
+    if (associations.isEmpty()) {
+      associations.add(if (alert == "NORMAL") "Enzymes hépatiques et bilirubine équilibrées." else "Perturbation ciblée à confronter aux antécédents hépatiques, alcool, médicaments et imagerie.")
+    }
+
+    mechanisms.add("Transaminases (ASAT/ALAT)" to "Enzymes intracellulaires libérées dans le sang lors de la destruction (cytolyse) des hépatocytes. L'ALAT est plus spécifique du foie ; l'ASAT provient aussi du muscle et du cœur.")
+    mechanisms.add("Cholestase (PAL / GGT)" to "Traduit un ralentissement ou un obstacle à l'écoulement biliaire. L'association PAL + GGT élevées signe une origine hépatobiliaire, tandis qu'une GGT isolée oriente vers une induction enzymatique.")
+    mechanisms.add("Bilirubine totale et conjuguée" to "La bilirubine libre provient du catabolisme de l'hème (augmentée en cas d'hémolyse) ; elle est conjuguée dans le foie pour être excrétée dans la bile (augmentée en cas d'obstacle biliaire).")
+    mechanisms.add("Lipasémie" to "Enzyme exocrine spécifique du pancréas : un seuil > 3 fois la normale associé à une douleur épigastrique typique pose le diagnostic de pancréatite aiguë.")
+
+    val caveat = "RAPPEL CLINIQUE : L'élévation des transaminases ne mesure pas la fonction de synthèse hépatique ! Seuls le Taux de Prothrombine (TP), le Facteur V et l'albuminémie évaluent l'insuffisance hépatocellulaire."
 
     return BiologicalInterpretation(
       alertLevel = alert,
       title = "Interprétation du Bilan Hépatique & Pancréatique",
-      summary = if (alert == "CRITICAL") "Atteinte hépatique ou pancréatique aiguë sévère." else if (hasCytolysis || hasCholestasis) "Syndrome hépatobiliaire présent." else "Bilan hépatique normal sans anomalie.",
+      summary = if (alert == "CRITICAL") "Atteinte hépatique ou pancréatique aiguë sévère." else if (alert == "MODERATE") "Perturbation hépatobiliaire ou pancréatique à explorer." else "Bilan hépatique normal sans anomalie.",
       details = details,
       clinicalPearls = pearls,
-      computedMetrics = metrics
+      computedMetrics = metrics,
+      generalAppreciation = generalConclusion,
+      normalParameters = normalParams,
+      abnormalParameters = abnormalParams,
+      identifiedAssociations = associations,
+      diagnosticOrientations = orientations,
+      generalConclusion = generalConclusion,
+      clinicalContextCaveat = caveat,
+      pedagogicalMechanisms = mechanisms
     )
   }
 
@@ -1450,60 +1777,185 @@ object MedicalInterpreter {
     val details = mutableListOf<String>()
     val pearls = mutableListOf<String>()
     val metrics = mutableListOf<Pair<String, String>>()
+    val normalParams = mutableListOf<String>()
+    val abnormalParams = mutableListOf<String>()
+    val associations = mutableListOf<String>()
+    val orientations = mutableListOf<String>()
+    val mechanisms = mutableListOf<Pair<String, String>>()
+    val conclusionFindings = mutableListOf<String>()
     var alert = "NORMAL"
 
-    // Inflammation
+    fun raise(sev: String) {
+      if (sev == "CRITICAL") alert = "CRITICAL"
+      else if (sev == "MODERATE" && alert != "CRITICAL") alert = "MODERATE"
+    }
+
+    // CRP
     if (input.crp != null) {
       when {
         input.crp > 100f -> {
-          alert = "CRITICAL"
-          details.add("Syndrome inflammatoire biologique MAJEUR (CRP ${input.crp} mg/L) : forte probabilité d'infection bactérienne invasive sévère, sepsis ou poussée de vascularite systémique.")
+          raise("CRITICAL")
+          abnormalParams.add("CRP : ${input.crp} mg/L [SYNDROME INFLAMMATOIRE MAJEUR]")
+          conclusionFindings.add("un syndrome inflammatoire majeur (CRP ${input.crp} mg/L)")
+          details.add("Syndrome inflammatoire biologique MAJEUR (CRP ${input.crp} mg/L) : forte probabilité d'infection bactérienne invasive sévère, sepsis ou poussée inflammatoire systémique.")
+          orientations.add("Rechercher activement un foyer infectieux bactérien (hémocultures, ECBU, radiographie thoracique) selon la clinique.")
         }
         input.crp > 10f -> {
-          if (alert != "CRITICAL") alert = "MODERATE"
+          raise("MODERATE")
+          abnormalParams.add("CRP : ${input.crp} mg/L [ÉLEVÉE]")
+          conclusionFindings.add("un syndrome inflammatoire biologique (CRP ${input.crp} mg/L)")
           details.add("Syndrome inflammatoire biologique franc (CRP ${input.crp} mg/L).")
+          orientations.add("CRP élevée compatible avec une infection (bactérienne ou virale), une poussée inflammatoire, traumatisme ou thrombose.")
         }
-        else -> details.add("CRP normale (< 10 mg/L) : absence de syndrome inflammatoire systémique significatif.")
+        input.crp > 5f -> {
+          abnormalParams.add("CRP : ${input.crp} mg/L [LÉGÈREMENT ÉLEVÉE]")
+          details.add("CRP modérément supérieure à 5 mg/L (${input.crp} mg/L) : inflammation mineure ou débutante.")
+        }
+        else -> {
+          normalParams.add("CRP : ${input.crp} mg/L (norme < 5)")
+          details.add("CRP normale (${input.crp} mg/L) : absence de syndrome inflammatoire systémique significatif.")
+        }
+      }
+    }
+
+    // Vitesse de sédimentation (VS)
+    if (input.vs != null) {
+      if (input.vs > 20f) {
+        raise("MODERATE")
+        abnormalParams.add("VS : ${input.vs} mm/1ère h [ACCÉLÉRÉE]")
+        details.add("VS accélérée (${input.vs} mm) : marqueur lent d'inflammation chronique, d'anémie, de gammapathie monoclonale ou d'infection subaiguë.")
+      } else {
+        normalParams.add("VS : ${input.vs} mm/1ère h")
       }
     }
 
     // Procalcitonine
     if (input.pct != null) {
       if (input.pct > 2.0f) {
-        alert = "CRITICAL"
+        raise("CRITICAL")
+        abnormalParams.add("Procalcitonine : ${input.pct} ng/mL [SEPSIS PROBABLE]")
+        conclusionFindings.add("une élévation majeure de la procalcitonine (${input.pct} ng/mL)")
         details.add("Procalcitonine très élevée (${input.pct} ng/mL) : signature d'un SEPSIS BACTÉRIEN sévère ou choc septique. Antibiothérapie urgente.")
-      } else if (input.pct in 0.5f..2.0f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
+        orientations.add("Forte suspicion de bactériémie ou sepsis sévère : hémocultures et antibiothérapie probabiliste sans retard.")
+      } else if (input.pct >= 0.5f) {
+        raise("MODERATE")
+        abnormalParams.add("Procalcitonine : ${input.pct} ng/mL [ÉLEVÉE]")
+        conclusionFindings.add("une procalcitonine modérément élevée (${input.pct} ng/mL)")
         details.add("Procalcitonine modérément élevée (${input.pct} ng/mL) : infection bactérienne probable.")
       } else {
-        details.add("Procalcitonine basse (< 0.5 ng/mL) : oriente plutôt vers une infection virale ou une inflammation non bactérienne.")
+        normalParams.add("Procalcitonine : ${input.pct} ng/mL")
+        details.add("Procalcitonine basse (${input.pct} ng/mL < 0.5) : oriente plutôt vers une origine virale ou une inflammation non bactérienne.")
       }
     }
 
-    // Coagulation (TP / INR / TCA)
+    // TP & INR
     if (input.tp != null) {
       if (input.tp < 50f) {
-        alert = "CRITICAL"
+        raise("CRITICAL")
+        abnormalParams.add("TP : ${input.tp} % [EFFONDREMENT CRITIQUE]")
+        conclusionFindings.add("une baisse sévère du TP (${input.tp}%)")
         details.add("BAISSE SÉVÈRE DU TP (${input.tp}%) : risque hémorragique spontané majeur !")
-        pearls.add("Distinguer carence en vitamine K (TP bas, TCA allongé, Facteur V normal) d'une insuffisance hépatocellulaire sévère (TP bas et Facteur V bas).")
+        orientations.add("Discriminer insuffisance hépatocellulaire (Facteur V bas), carence en vitamine K/AVK (Facteur V normal) ou CIVD.")
+        pearls.add("Distinguer carence en vitamine K (TP bas, Facteur V normal) d'une insuffisance hépatocellulaire sévère (TP bas et Facteur V bas).")
       } else if (input.tp < 70f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
+        raise("MODERATE")
+        abnormalParams.add("TP : ${input.tp} % [ABAISSÉ]")
+        conclusionFindings.add("une diminution modérée du TP (${input.tp}%)")
         details.add("Baisse modérée du taux de prothrombine (${input.tp}%).")
+      } else {
+        normalParams.add("TP : ${input.tp} % (norme 70 - 100%)")
       }
     }
 
-    if (input.tcaRatio != null && input.tcaRatio > 1.3f) {
-      if (alert != "CRITICAL") alert = "MODERATE"
-      details.add("Allongement du TCA (ratio patient/témoin ${input.tcaRatio}) : anomalie de la voie endogène (traitement par héparine, déficit en facteurs VIII/IX/XI, ou anticoagulant lupique circulant).")
+    if (input.inr != null) {
+      when {
+        input.inr >= 4.0f -> {
+          raise("CRITICAL")
+          abnormalParams.add("INR : ${input.inr} [SURDOSAGE CRITIQUE / RISQUE HÉMORRAGIQUE]")
+          conclusionFindings.add("un INR très élevé (${input.inr})")
+          details.add("INR >= 4.0 (${input.inr}) : risque hémorragique majeur (surdosage AVK ou coagulopathie sévère).")
+        }
+        input.inr > 1.2f -> {
+          raise("MODERATE")
+          abnormalParams.add("INR : ${input.inr} [ALLONGÉ]")
+          details.add("INR allongé (${input.inr}) : compatible avec un traitement par AVK (zone cible usuelle 2-3) ou baisse de la voie extrinsèque.")
+        }
+        else -> normalParams.add("INR : ${input.inr}")
+      }
+    }
+
+    // TCA
+    if (input.tcaRatio != null) {
+      if (input.tcaRatio > 1.3f) {
+        raise("MODERATE")
+        abnormalParams.add("Ratio TCA : ${input.tcaRatio} [ALLONGÉ]")
+        conclusionFindings.add("un allongement du TCA (ratio ${input.tcaRatio})")
+        details.add("Allongement du TCA (ratio patient/témoin ${input.tcaRatio}) : anomalie de la voie endogène (traitement par héparine, déficit en facteurs VIII/IX/XI, anticoagulant lupique).")
+        orientations.add("Tester un mélange témoin-malade en cas d'allongement inexpliqué du TCA (correction = déficit en facteur ; non-correction = anticoagulant circulant).")
+      } else {
+        normalParams.add("Ratio TCA : ${input.tcaRatio}")
+      }
+    }
+
+    // Fibrinogène
+    if (input.fibrinogene != null) {
+      when {
+        input.fibrinogene < 1.5f -> {
+          raise("CRITICAL")
+          abnormalParams.add("Fibrinogène : ${input.fibrinogene} g/L [HYPOFIBRINOGÉNÉMIE]")
+          conclusionFindings.add("une hypofibrinogénémie (${input.fibrinogene} g/L)")
+          details.add("Fibrinogène abaissé (${input.fibrinogene} g/L) : signe de consommation (CIVD), fibrinolyse ou insuffisance hépatique sévère.")
+        }
+        input.fibrinogene > 4.0f -> {
+          raise("MODERATE")
+          abnormalParams.add("Fibrinogène : ${input.fibrinogene} g/L [HYPERFIBRINOGÉNÉMIE]")
+          details.add("Hyperfibrinogénémie (${input.fibrinogene} g/L) : protéine de la phase aiguë confirmant un syndrome inflammatoire.")
+        }
+        else -> normalParams.add("Fibrinogène : ${input.fibrinogene} g/L (norme 2 - 4)")
+      }
     }
 
     // D-Dimères
     if (input.dDimeres != null) {
       if (input.dDimeres > 500f) {
-        if (alert != "CRITICAL") alert = "MODERATE"
-        details.add("D-Dimères élevés (${input.dDimeres} ng/mL) : activation de la coagulation et de la fibrinolyse. Valeur prédictive négative élevée : des D-Dimères normaux éliminent une embolie pulmonaire ou une TVP chez un patient à probabilité clinique faible ou intermédiaire.")
+        raise("MODERATE")
+        abnormalParams.add("D-Dimères : ${input.dDimeres} ng/mL [POSITIFS > 500]")
+        conclusionFindings.add("une élévation des D-Dimères (${input.dDimeres} ng/mL)")
+        details.add("D-Dimères élevés (${input.dDimeres} ng/mL) : activation de la coagulation et fibrinolyse (thrombose veineuse/EP, mais aussi infection, inflammation, cancer, grossesse, post-opératoire).")
+        orientations.add("Des D-Dimères positifs ne confirment jamais seuls une EP/TVP : confronter au score de probabilité clinique (Wells/Genève) et à l'imagerie (angioscanner/écho-Doppler).")
+      } else {
+        normalParams.add("D-Dimères : ${input.dDimeres} ng/mL (norme < 500)")
+        details.add("D-Dimères négatifs (< 500 ng/mL) : excellente valeur prédictive négative pour exclure TVP/EP si probabilité clinique faible ou intermédiaire.")
       }
     }
+
+    // Association CIVD suspectée
+    if ((input.tp != null && input.tp < 60f) && (input.fibrinogene != null && input.fibrinogene < 1.5f) && (input.dDimeres != null && input.dDimeres > 1000f)) {
+      raise("CRITICAL")
+      associations.add("Triade biologique évocatrice d'une Coagulation Intravasculaire Disséminée (CIVD) : baisse TP + hypofibrinogénémie + D-Dimères très élevés (à confronter aux plaquettes).")
+    }
+
+    val generalConclusion = when {
+      conclusionFindings.isEmpty() && details.isEmpty() ->
+        "Paramètres inflammatoires et d'hémostase insuffisamment renseignés."
+      conclusionFindings.isEmpty() ->
+        "Le bilan inflammatoire et de coagulation est globalement équilibré dans les limites de référence."
+      else ->
+        "Le bilan inflammatoire et d'hémostase a objectivé ${conclusionFindings.joinToString(", ")}, à confronter au terrain (anticoagulants, foie), aux signes cliniques infectieux/hémorragiques/thrombotiques et aux examens ciblés."
+    }
+
+    if (orientations.isEmpty() && alert == "NORMAL") {
+      orientations.add("Pas de syndrome inflammatoire biologique ni de coagulopathie décelée.")
+    }
+    if (associations.isEmpty()) {
+      associations.add(if (alert == "NORMAL") "Inflammation et hémostase équilibrées." else "Anomalie(s) à corréler au traitement anticoagulant éventuel, à la NFS (plaquettes) et au contexte infectieux.")
+    }
+
+    mechanisms.add("CRP & Procalcitonine" to "La CRP est synthétisée par le foie sous l'effet de l'IL-6 dans tout syndrome inflammatoire. La PCT est plus spécifique des infections bactériennes systémiques sévères.")
+    mechanisms.add("TP / INR & TCA" to "Le TP explore la voie extrinsèque (facteurs VII, X, V, II, I, dépendants du foie et de la vitamine K). Le TCA explore la voie intrinsèque (facteurs VIII, IX, XI, XII et sensibilité à l'héparine).")
+    mechanisms.add("D-Dimères & Fibrinogène" to "Les D-Dimères sont des produits de dégradation de la fibrine : leur négativité exclut une MTEV à probabilité faible/intermédiaire, mais leur élévation manque de spécificité.")
+
+    val caveat = "RAPPEL CLINIQUE : Toujours demander avant d'interpréter l'hémostase si le patient reçoit un anticoagulant (AVK, AOD, héparine) ou présente une hépatopathie chronique."
 
     return BiologicalInterpretation(
       alertLevel = alert,
@@ -1511,7 +1963,15 @@ object MedicalInterpreter {
       summary = if (alert == "CRITICAL") "Anomalie inflammatoire sévère ou coagulopathie menaçante." else if (alert == "MODERATE") "Syndrome inflammatoire ou perturbation de coagulation." else "Bilan d'hémostase et inflammatoire équilibré.",
       details = details,
       clinicalPearls = pearls,
-      computedMetrics = metrics
+      computedMetrics = metrics,
+      generalAppreciation = generalConclusion,
+      normalParameters = normalParams,
+      abnormalParameters = abnormalParams,
+      identifiedAssociations = associations,
+      diagnosticOrientations = orientations,
+      generalConclusion = generalConclusion,
+      clinicalContextCaveat = caveat,
+      pedagogicalMechanisms = mechanisms
     )
   }
 
@@ -1519,74 +1979,177 @@ object MedicalInterpreter {
   fun interpretUrine(input: UrineDipstickInput): BiologicalInterpretation {
     val details = mutableListOf<String>()
     val pearls = mutableListOf<String>()
+    val normalParams = mutableListOf<String>()
+    val abnormalParams = mutableListOf<String>()
+    val associations = mutableListOf<String>()
+    val orientations = mutableListOf<String>()
+    val mechanisms = mutableListOf<Pair<String, String>>()
+    val conclusionFindings = mutableListOf<String>()
     var alert = "NORMAL"
+
+    fun raise(sev: String) {
+      if (sev == "CRITICAL") alert = "CRITICAL"
+      else if (sev == "MODERATE" && alert != "CRITICAL") alert = "MODERATE"
+    }
 
     val hasLeuco = input.leucocytes != "Négatif"
     val hasNitrites = input.nitrites == "Positif"
     val hasProtein = input.proteinurie != "Négatif"
     val hasBlood = input.hematurie != "Négatif"
     val hasKetones = input.cetones != "Négatif"
+    val hasGlucose = input.glucose != "Négatif"
 
     if (hasLeuco && hasNitrites) {
-      if (alert != "CRITICAL") alert = "MODERATE"
+      raise("MODERATE")
+      abnormalParams.add("Leucocytes (${input.leucocytes}) + Nitrites (Positif)")
+      conclusionFindings.add("une leucocyturie associée à des nitrites positifs")
+      associations.add("Association Leucocytes + Nitrites positifs hautement compatible avec une infection urinaire à entérobactérie.")
       details.add("INFECTION URINAIRE BACTÉRIENNE HAUTEMENT PROBABLE (Leucocytes + et Nitrites +) : traduit la présence d'une pyurie et de bactéries sécrétant une nitrate réductase (famille des Entérobactéries, type Escherichia coli). Indication formelle d'ECBU.")
+      orientations.add("Profil compatible avec une infection urinaire (cystite ou pyélonéphrite selon fièvre/douleur lombaire) : réaliser un ECBU avec antibiogramme si critère de complication ou pyélonéphrite.")
     } else if (hasLeuco && !hasNitrites) {
-      details.add("Leucocyturie isolée sans nitrites : éliminer une infection à germe sans nitrate réductase (Staphylocoque, Entérocoque, Streptocoque B), une infection urinaire décapitée par antibiotiques, ou une tuberculose urogénitale.")
+      raise("MODERATE")
+      abnormalParams.add("Leucocytes (${input.leucocytes}), Nitrites (Négatif)")
+      conclusionFindings.add("une leucocyturie isolée (${input.leucocytes}) sans nitrites")
+      details.add("Leucocyturie isolée sans nitrites : éliminer une infection à germe sans nitrate réductase (Staphylocoque, Entérocoque, Streptocoque), une infection décapitée par antibiotiques ou une leucocyturie aseptique.")
+      orientations.add("En cas de symptômes urinaires : réaliser un ECBU pour identification bactériologique et numération.")
+    } else if (hasNitrites) {
+      raise("MODERATE")
+      abnormalParams.add("Nitrites Positifs")
+      conclusionFindings.add("une positivité isolée des nitrites")
+      details.add("Nitrites positifs sans leucocyturie détectée : bactériurie possible à contrôler par ECBU si symptomatique.")
+    } else {
+      normalParams.add("Leucocytes et Nitrites négatifs")
     }
 
     if (hasProtein) {
       if (input.proteinurie.contains("3g") || input.proteinurie.contains("3+")) {
-        alert = "CRITICAL"
-        details.add("Protéinurie massive (3+) : suspicion formelle de syndrome néphrotique. Dosage quantitatif de la protéinurie des 24h et albuminémie requis d'urgence.")
+        raise("CRITICAL")
+        abnormalParams.add("Protéinurie : ${input.proteinurie} [MASSIVE]")
+        conclusionFindings.add("une protéinurie massive à la bandelette (${input.proteinurie})")
+        details.add("Protéinurie massive (3+) : orientation vers un syndrome glomérulaire / néphrotique. Dosage quantitatif (protéinurie/créatininurie ou 24h) et albuminémie urgents.")
+        orientations.add("Rechercher œdèmes des membres inférieurs, HTA, albuminémie et fonction rénale (UECréat).")
       } else {
-        if (alert != "CRITICAL") alert = "MODERATE"
-        details.add("Protéinurie détectée (${input.proteinurie}) : à quantifier en laboratoire par le ratio protéinurie/créatininurie sur échantillon matinal.")
+        raise("MODERATE")
+        abnormalParams.add("Protéinurie : ${input.proteinurie}")
+        conclusionFindings.add("une protéinurie détectée (${input.proteinurie})")
+        details.add("Protéinurie détectée (${input.proteinurie}) : à quantifier en laboratoire par le ratio protéinurie/créatininurie sur échantillon.")
       }
+    } else {
+      normalParams.add("Protéinurie : Négative")
     }
 
     if (hasBlood) {
-      if (alert != "CRITICAL") alert = "MODERATE"
-      details.add("Hématurie à la bandelette (${input.hematurie}) : confirme la présence d'érythrocytes ou d'hémoglobine libre. Rechercher lithiase, tumeur urothéliale, infection ou glomérulonéphrite.")
+      raise("MODERATE")
+      abnormalParams.add("Hématurie : ${input.hematurie}")
+      conclusionFindings.add("une hématurie à la bandelette (${input.hematurie})")
+      details.add("Hématurie à la bandelette (${input.hematurie}) : confirme la présence d'érythrocytes ou d'hémoglobine/myoglobine. Rechercher lithiase, infection, glomérulonéphrite ou lésion urothéliale.")
+      orientations.add("Confirmer par ECBU/cytologie urinaire (numération des hématies) et vérifier l'absence de contamination menstruelle.")
+    } else {
+      normalParams.add("Hématurie : Négative")
+    }
+
+    if (hasGlucose) {
+      raise("MODERATE")
+      abnormalParams.add("Glycosurie : ${input.glucose} [POSITIVE]")
+      conclusionFindings.add("une glycosurie (${input.glucose})")
+      details.add("Glycosurie positive (${input.glucose}) : dépassement du seuil de réabsorption rénale du glucose (glycémie > 1.80 g/L le plus souvent) ou tubulopathie.")
+    } else {
+      normalParams.add("Glycosurie : Négative")
     }
 
     if (hasKetones) {
-      if (alert != "CRITICAL") alert = "MODERATE"
-      details.add("Cétonurie détectée (${input.cetones}) : témoigne d'une cétose (jeûne prolongé ou acidocétose diabétique si associée à une glycosurie franche).")
+      if (hasGlucose) {
+        raise("CRITICAL")
+        associations.add("ASSOCIATION GLYCOSURIE + CÉTONURIE : Alerte majeure devant faire éliminer immédiatement une ACIDOCÉTOSE DIABÉTIQUE !")
+        orientations.add("Mesurer glycémie capillaire/veineuse, ionogramme sanguin et réserve alcaline/gaz du sang en urgence.")
+      } else {
+        raise("MODERATE")
+      }
+      abnormalParams.add("Cétonurie : ${input.cetones}")
+      conclusionFindings.add("une cétonurie (${input.cetones})")
+      details.add("Cétonurie détectée (${input.cetones}) : témoigne d'une cétose (jeûne prolongé, vomissements ou acidocétose diabétique si associée à une glycosurie).")
+    } else {
+      normalParams.add("Cétonurie : Négative")
     }
 
+    val generalConclusion = when {
+      conclusionFindings.isEmpty() ->
+        "La bandelette urinaire est strictement normale, avec excellente valeur prédictive négative contre une infection urinaire en l'absence d'atypie clinique."
+      else ->
+        "La bandelette urinaire a objectivé ${conclusionFindings.joinToString(", ")}, nécessitant une confrontation à la symptomatologie mictionnelle, à la température et, selon le cas, un ECBU ou un dosage quantitatif."
+    }
+
+    if (orientations.isEmpty() && alert == "NORMAL") {
+      orientations.add("Pas d'orientation pathologique urinaire sur la bandelette.")
+    }
+    if (associations.isEmpty()) {
+      associations.add(if (alert == "NORMAL") "Aucun profil infectieux, glomérulaire ou céto-acidosique." else "Anomalie(s) de dépistage urinaire devant être confirmées biologiquement selon le contexte.")
+    }
+
+    mechanisms.add("Leucocytes estérase & Nitrites" to "L'estérase leucocytaire détecte les polynucléaires altérés (pyurie). Les nitrites résultent de la transformation des nitrates urinaires par les entérobactéries (E. coli).")
+    mechanisms.add("Protéinurie à la BU" to "La bandelette est sensible surtout à l'albuminurie ; une protéinurie >= ++ impose une confirmation quantitative au laboratoire et l'examen du sédiment urinaire.")
+    mechanisms.add("Glycosurie & Cétonurie" to "La présence simultanée de sucre et de corps cétoniques dans les urines doit immédiatement faire contrôler la glycémie et le pH/HCO3- pour écarter une acidocétose.")
+
+    val caveat = "RAPPEL CLINIQUE : La bandelette urinaire est un test d'orientation rapide qui ne remplace pas l'ECBU (seul examen identifiant le germe et son antibiogramme) ni le dosage quantitatif de la protéinurie."
     pearls.add("Chez la femme non ménopausée sans symptôme, une bandelette Leucocytes - et Nitrites - possède une valeur prédictive négative de plus de 95% pour exclure une infection urinaire.")
 
     return BiologicalInterpretation(
       alertLevel = alert,
       title = "Interprétation Bandelette Urinaire & ECBU",
-      summary = if (alert == "CRITICAL") "Anomalie urinaire majeure (protéinurie massive ou hématurie)." else if (hasLeuco || hasNitrites || hasBlood) "Anomalie dépistée à la bandelette urinaire." else "Bandelette urinaire normale sans anomalie.",
+      summary = if (alert == "CRITICAL") "Anomalie urinaire majeure (protéinurie massive ou cétose glycosurique)." else if (alert == "MODERATE") "Anomalie dépistée à la bandelette urinaire." else "Bandelette urinaire normale sans anomalie.",
       details = details,
-      clinicalPearls = pearls
+      clinicalPearls = pearls,
+      generalAppreciation = generalConclusion,
+      normalParameters = normalParams,
+      abnormalParameters = abnormalParams,
+      identifiedAssociations = associations,
+      diagnosticOrientations = orientations,
+      generalConclusion = generalConclusion,
+      clinicalContextCaveat = caveat,
+      pedagogicalMechanisms = mechanisms
     )
   }
 
-  // 7. Interprétation Glasgow Coma Scale
+  // 7. Interprétation Glasgow Coma Scale (Module Mesures)
   fun interpretGlasgow(e: Int, v: Int, m: Int): BiologicalInterpretation {
     val total = e + v + m
     val alertLevel = when {
       total <= 8 -> "CRITICAL"
-      total in 9..12 -> "MODERATE"
-      total in 13..14 -> "MODERATE"
+      total in 9..14 -> "MODERATE"
       else -> "NORMAL"
     }
 
     val title = "Score de Glasgow (GCS) : $total / 15 (E$e V$v M$m)"
     val details = mutableListOf<String>()
     val pearls = mutableListOf<String>()
+    val normalParams = mutableListOf<String>()
+    val abnormalParams = mutableListOf<String>()
 
     when {
-      total == 15 -> details.add("Conscience normale : patient vigile, orienté dans le temps et l'espace, répondant aux ordres simples.")
-      total in 13..14 -> details.add("Altération légère de la vigilance ou confusion modérée.")
-      total in 9..12 -> details.add("Altération modérée de la conscience / Somnolence pathologique. Surveillance horaire rapprochée et TDM cérébral recommandé.")
+      total == 15 -> {
+        normalParams.add("Score de Glasgow : 15 / 15 (E4 V5 M6)")
+        details.add("Conscience normale : patient vigile, orienté dans le temps et l'espace, répondant aux ordres simples.")
+      }
+      total in 13..14 -> {
+        abnormalParams.add("Score de Glasgow : $total / 15 (E$e V$v M$m) [ALTÉRATION LÉGÈRE]")
+        details.add("Altération légère de la vigilance ou confusion modérée.")
+      }
+      total in 9..12 -> {
+        abnormalParams.add("Score de Glasgow : $total / 15 (E$e V$v M$m) [ALTÉRATION MODÉRÉE]")
+        details.add("Altération modérée de la conscience / Somnolence pathologique. Surveillance horaire rapprochée et TDM cérébral recommandé.")
+      }
       total <= 8 -> {
+        abnormalParams.add("Score de Glasgow : $total / 15 (E$e V$v M$m) [COMA SÉVÈRE]")
         details.add("COMA SÉVÈRE / ALTÉRATION MAJEURE DE LA CONSCIENCE (GCS <= 8).")
         pearls.add("RÈGLE ABSOLUE : Tout score de Glasgow <= 8 impose une intubation trachéale en séquence rapide pour protéger les voies aériennes supérieures contre le risque d'inhalation bronchique !")
       }
+    }
+
+    val conclusion = when {
+      total == 15 -> "État de conscience normal : patient conscient, vigile et orienté (Glasgow 15/15 : E$e V$v M$m)."
+      total in 13..14 -> "Altération légère de la vigilance (Glasgow $total/15 : E$e V$v M$m) nécessitant recherche de cause métabolique, toxique ou neurologique."
+      total in 9..12 -> "Altération modérée de la conscience (Glasgow $total/15 : E$e V$v M$m) justifiant surveillance neurologique rapprochée et bilan étiologique urgent."
+      else -> "Coma sévère (Glasgow $total/15 : E$e V$v M$m <= 8) : alerte vitale immédiate nécessitant protection des voies aériennes."
     }
 
     return BiologicalInterpretation(
@@ -1594,7 +2157,11 @@ object MedicalInterpreter {
       title = title,
       summary = if (total <= 8) "Coma sévère - Signal d'alerte vital immédiat" else if (total < 15) "Altération neurologique nécessitant surveillance" else "État de conscience normal",
       details = details,
-      clinicalPearls = pearls
+      clinicalPearls = pearls,
+      normalParameters = normalParams,
+      abnormalParameters = abnormalParams,
+      generalConclusion = conclusion,
+      clinicalContextCaveat = "Toujours vérifier l'absence d'hypoglycémie, d'hypoxie (SpO2) ou de choc devant toute baisse du score de Glasgow, et noter chaque composante E, V et M séparément."
     )
   }
 

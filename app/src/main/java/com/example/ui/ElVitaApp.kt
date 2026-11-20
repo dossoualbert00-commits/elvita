@@ -180,6 +180,13 @@ fun ElVitaApp(
               viewModel = patientsViewModel,
               onNavigateToNewVitalForPatient = { patientId ->
                 vitalsViewModel.onPatientSelected(patientId)
+                vitalsSubTab = 0
+                currentScreen = AppScreen.MAIN_TABS
+                currentTab = 2
+              },
+              onNavigateToNewGlasgowForPatient = { patientId ->
+                vitalsViewModel.onGlasgowPatientSelected(patientId)
+                vitalsSubTab = 1
                 currentScreen = AppScreen.MAIN_TABS
                 currentTab = 2
               },

@@ -115,7 +115,7 @@ fun ClinicalTrainingAccordion(
               color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-              text = "Interrogatoire (14 points), Organisation, Observation & Synthèse",
+              text = "Interrogatoire (14 pts), Organisation, Observation, Synthèse, Transitions & Oral",
               style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -136,7 +136,7 @@ fun ClinicalTrainingAccordion(
             .padding(top = 14.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-          // Tab navigation across the 4 modules
+          // Tab navigation across the 6 modules
           ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -164,6 +164,16 @@ fun ClinicalTrainingAccordion(
               onClick = { selectedTab = 3 },
               text = { Text("D. Synthèse Clinique", fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal) }
             )
+            Tab(
+              selected = selectedTab == 4,
+              onClick = { selectedTab = 4 },
+              text = { Text("E. Transitions (11)", fontWeight = if (selectedTab == 4) FontWeight.Bold else FontWeight.Normal) }
+            )
+            Tab(
+              selected = selectedTab == 5,
+              onClick = { selectedTab = 5 },
+              text = { Text("F. Présentation Orale", fontWeight = if (selectedTab == 5) FontWeight.Bold else FontWeight.Normal) }
+            )
           }
 
           when (selectedTab) {
@@ -171,6 +181,8 @@ fun ClinicalTrainingAccordion(
             1 -> InfoOrganizationTab()
             2 -> ObservationMethodTab()
             3 -> ClinicalSynthesisTab()
+            4 -> TransitionsTrainingTab()
+            5 -> OralPresentationTab()
           }
         }
       }
@@ -329,6 +341,28 @@ fun AnamnesisSkillCard(skill: AnamnesisSkill) {
             }
           }
 
+          // 4bis. Questions de relance & vérification complémentaires
+          if (skill.followUpQuestions.isNotEmpty()) {
+            Card(
+              shape = RoundedCornerShape(8.dp),
+              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+              border = androidx.compose.foundation.BorderStroke(1.dp, MedicalBlue.copy(alpha = 0.2f))
+            ) {
+              Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                  text = "❓ Questions de relance & vérification (${skill.followUpQuestions.size}) :",
+                  style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MedicalBlue)
+                )
+                skill.followUpQuestions.forEach { q ->
+                  Text(
+                    text = "• $q",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                  )
+                }
+              }
+            }
+          }
+
           // 5. Exercice pratique interactif avec correction
           Card(
             shape = RoundedCornerShape(10.dp),
@@ -465,9 +499,21 @@ fun InfoOrganizationTab() {
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, color = AlertRed)
           )
           Text(
-            text = "Exemple hospitalier : « ${guide.hospitalExample} »",
+            text = "Exemple hospitalier clé : « ${guide.hospitalExample} »",
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
           )
+          if (guide.examples.isNotEmpty()) {
+            Text(
+              text = "Autres exemples cliniques (${guide.examples.size}) :",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MedicalTeal)
+            )
+            guide.examples.forEach { ex ->
+              Text(
+                text = "• $ex",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+              )
+            }
+          }
         }
       }
     }
@@ -701,6 +747,33 @@ fun ObservationMethodTab() {
                     text = "Exemple recommandé : ${skill.goodExample}",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, color = Color(0xFF065F46))
                   )
+                }
+
+                if (skill.additionalExamples.isNotEmpty()) {
+                  Text(
+                    text = "Autres comparatifs commentés (${skill.additionalExamples.size}) :",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MedicalBlue),
+                    modifier = Modifier.padding(top = 4.dp)
+                  )
+                  skill.additionalExamples.forEach { (bad, good) ->
+                    Column(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(7.dp),
+                      verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                      Text(
+                        text = "✗ $bad",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp, color = AlertRed)
+                      )
+                      Text(
+                        text = "✓ $good",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp, color = Color(0xFF065F46))
+                      )
+                    }
+                  }
                 }
               }
 

@@ -4,14 +4,17 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.local.dao.ClinicalObservationDao
 import com.example.data.local.dao.ClinicalUpdateDao
+import com.example.data.local.dao.GlasgowEvaluationDao
 import com.example.data.local.dao.LabResultDao
 import com.example.data.local.dao.PatientDao
 import com.example.data.local.dao.VitalDao
 import com.example.data.local.entities.ClinicalObservationEntity
 import com.example.data.local.entities.ClinicalUpdateEntity
+import com.example.data.local.entities.GlasgowEvaluationEntity
 import com.example.data.local.entities.LabResultEntity
 import com.example.data.local.entities.PatientEntity
 import com.example.data.local.entities.VitalEntity
@@ -25,9 +28,10 @@ import kotlinx.coroutines.launch
     VitalEntity::class,
     ClinicalObservationEntity::class,
     ClinicalUpdateEntity::class,
-    LabResultEntity::class
+    LabResultEntity::class,
+    GlasgowEvaluationEntity::class
   ],
-  version = 1,
+  version = 2,
   exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,8 +40,35 @@ abstract class AppDatabase : RoomDatabase() {
   abstract fun clinicalObservationDao(): ClinicalObservationDao
   abstract fun clinicalUpdateDao(): ClinicalUpdateDao
   abstract fun labResultDao(): LabResultDao
+  abstract fun glasgowEvaluationDao(): GlasgowEvaluationDao
 
   companion object {
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `glasgow_evaluations` (
+            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            `patientId` INTEGER NOT NULL,
+            `eyeOpening` INTEGER NOT NULL,
+            `verbalResponse` INTEGER NOT NULL,
+            `motorResponse` INTEGER NOT NULL,
+            `totalScore` INTEGER NOT NULL,
+            `alertLevel` TEXT NOT NULL,
+            `interpretationText` TEXT NOT NULL,
+            `pedagogicalNote` TEXT NOT NULL,
+            `timestamp` INTEGER NOT NULL,
+            `formattedDateTime` TEXT NOT NULL,
+            FOREIGN KEY(`patientId`) REFERENCES `patients`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+          )
+          """.trimIndent()
+        )
+        db.execSQL(
+          "CREATE INDEX IF NOT EXISTS `index_glasgow_evaluations_patientId` ON `glasgow_evaluations` (`patientId`)"
+        )
+      }
+    }
+
     @Volatile
     private var INSTANCE: AppDatabase? = null
 
@@ -48,7 +79,7 @@ abstract class AppDatabase : RoomDatabase() {
           AppDatabase::class.java,
           "elvita_database.db"
         )
-        .fallbackToDestructiveMigration()
+        .addMigrations(MIGRATION_1_2)
         .addCallback(DatabaseCallback(scope))
         .build()
         INSTANCE = instance
@@ -75,6 +106,7 @@ abstract class AppDatabase : RoomDatabase() {
       val obsDao = db.clinicalObservationDao()
       val updateDao = db.clinicalUpdateDao()
       val labDao = db.labResultDao()
+      val glasgowDao = db.glasgowEvaluationDao()
 
       // Patient 1 : Cas pédagogique Respiratoire
       val p1Id = patientDao.insertPatient(
@@ -242,6 +274,36 @@ abstract class AppDatabase : RoomDatabase() {
           precautions = "Scope ECG continu, troponine ultrasensible répétée à H0 et H3, repos strict au lit, évaluation de la douleur (EVA).",
           timestamp = now - 3600000L,
           formattedDateTime = "02/11/2026 09:15"
+        )
+      )
+
+      glasgowDao.insertGlasgow(
+        GlasgowEvaluationEntity(
+          patientId = p1Id,
+          eyeOpening = 4,
+          verbalResponse = 5,
+          motorResponse = 6,
+          totalScore = 15,
+          alertLevel = "NORMAL",
+          interpretationText = "Score de Glasgow 15/15 (Y4 V5 M6) : conscience normale, patiente alerte et bien orientée.",
+          pedagogicalNote = "Surveillance neurologique régulière compte tenu du terrain fébrile et de l'âge (>= 65 ans).",
+          timestamp = now - 7200000L,
+          formattedDateTime = "02/11/2026 08:05"
+        )
+      )
+
+      glasgowDao.insertGlasgow(
+        GlasgowEvaluationEntity(
+          patientId = p2Id,
+          eyeOpening = 4,
+          verbalResponse = 5,
+          motorResponse = 6,
+          totalScore = 15,
+          alertLevel = "NORMAL",
+          interpretationText = "Score de Glasgow 15/15 (Y4 V5 M6) : conscience normale, sans trouble de la vigilance.",
+          pedagogicalNote = "État neurologique conservé, à réévaluer si survenue de malaise ou bas débit.",
+          timestamp = now - 3500000L,
+          formattedDateTime = "02/11/2026 09:18"
         )
       )
     }

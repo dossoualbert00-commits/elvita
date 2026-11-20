@@ -3,6 +3,7 @@ package com.example.ui.labs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.entities.LabResultEntity
+import com.example.data.local.entities.PatientEntity
 import com.example.data.medical.BiologicalInterpretation
 import com.example.data.medical.HepaticInput
 import com.example.data.medical.InflamCoagInput
@@ -11,15 +12,16 @@ import com.example.data.medical.NfsInput
 import com.example.data.medical.UeCreatInput
 import com.example.data.medical.UrineDipstickInput
 import com.example.data.repository.MedicalRepository
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class NfsFormState(
   val hb: String = "13.5",
@@ -84,14 +86,14 @@ data class UrineDipstickFormState(
   val interpretation: BiologicalInterpretation? = null
 )
 
-data class GlasgowState(
-  val eyeScore: Int = 4,    // 1-4
-  val verbalScore: Int = 5, // 1-5
-  val motorScore: Int = 6,  // 1-6
-  val interpretation: BiologicalInterpretation? = null
-)
-
 class LabsViewModel(private val repository: MedicalRepository) : ViewModel() {
+
+  private val _patients = repository.getAllPatients()
+  val patients: StateFlow<List<PatientEntity>> = _patients
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  private val _selectedPatientId = MutableStateFlow<Long?>(null)
+  val selectedPatientId: StateFlow<Long?> = _selectedPatientId.asStateFlow()
 
   private val _nfsState = MutableStateFlow(NfsFormState())
   val nfsState: StateFlow<NfsFormState> = _nfsState.asStateFlow()
@@ -108,11 +110,15 @@ class LabsViewModel(private val repository: MedicalRepository) : ViewModel() {
   private val _urineState = MutableStateFlow(UrineDipstickFormState())
   val urineState: StateFlow<UrineDipstickFormState> = _urineState.asStateFlow()
 
-  private val _glasgowState = MutableStateFlow(GlasgowState())
-  val glasgowState: StateFlow<GlasgowState> = _glasgowState.asStateFlow()
-
   val allLabResults: StateFlow<List<LabResultEntity>> = repository.getAllLabResults()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  val filteredLabResults: StateFlow<List<LabResultEntity>> = combine(
+    allLabResults,
+    _selectedPatientId
+  ) { all, pid ->
+    if (pid == null) all else all.filter { it.patientId == pid }
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   init {
     calculateNfs()
@@ -120,7 +126,10 @@ class LabsViewModel(private val repository: MedicalRepository) : ViewModel() {
     calculateHepatic()
     calculateInflamCoag()
     calculateUrine()
-    calculateGlasgow()
+  }
+
+  fun onPatientSelected(patientId: Long?) {
+    _selectedPatientId.value = patientId
   }
 
   // NFS
@@ -300,42 +309,39 @@ class LabsViewModel(private val repository: MedicalRepository) : ViewModel() {
     _urineState.value = _urineState.value.copy(interpretation = interp)
   }
 
-  // Glasgow
-  fun setGlasgowEye(score: Int) {
-    _glasgowState.value = _glasgowState.value.copy(eyeScore = score)
-    calculateGlasgow()
-  }
-
-  fun setGlasgowVerbal(score: Int) {
-    _glasgowState.value = _glasgowState.value.copy(verbalScore = score)
-    calculateGlasgow()
-  }
-
-  fun setGlasgowMotor(score: Int) {
-    _glasgowState.value = _glasgowState.value.copy(motorScore = score)
-    calculateGlasgow()
-  }
-
-  private fun calculateGlasgow() {
-    val s = _glasgowState.value
-    val interp = MedicalInterpreter.interpretGlasgow(s.eyeScore, s.verbalScore, s.motorScore)
-    _glasgowState.value = _glasgowState.value.copy(interpretation = interp)
-  }
-
-  fun saveResult(type: String, summary: String, interpretation: String, alertLevel: String, onDone: () -> Unit) {
+  fun saveResult(
+    type: String,
+    summary: String,
+    interpretation: String,
+    alertLevel: String,
+    valuesJson: String = "",
+    onPatientMissing: () -> Unit = {},
+    onDone: () -> Unit
+  ) {
+    val patientId = _selectedPatientId.value
+    if (patientId == null) {
+      onPatientMissing()
+      return
+    }
     val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRANCE)
     val entity = LabResultEntity(
-      patientId = null,
+      patientId = patientId,
       testType = type,
       date = sdf.format(Date()),
       summaryTitle = summary,
-      valuesMapJson = "",
+      valuesMapJson = valuesJson,
       interpretationText = interpretation,
       alertLevel = alertLevel
     )
     viewModelScope.launch {
       repository.insertLabResult(entity)
       onDone()
+    }
+  }
+
+  fun deleteLabResult(result: LabResultEntity) {
+    viewModelScope.launch {
+      repository.deleteLabResult(result)
     }
   }
 }

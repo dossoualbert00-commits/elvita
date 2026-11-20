@@ -16,6 +16,9 @@ interface VitalDao {
   @Query("SELECT * FROM vitals WHERE patientId = :patientId ORDER BY timestamp DESC")
   fun getVitalsByPatient(patientId: Long): Flow<List<VitalEntity>>
 
+  @Query("SELECT * FROM vitals WHERE patientId = :patientId ORDER BY timestamp DESC LIMIT 1")
+  suspend fun getLatestVitalForPatient(patientId: Long): VitalEntity?
+
   @Query("SELECT * FROM vitals ORDER BY timestamp DESC LIMIT :limit")
   fun getRecentVitals(limit: Int): Flow<List<VitalEntity>>
 
