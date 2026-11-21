@@ -1,0 +1,123 @@
+1
+00:00:00,451 --> 00:00:03,230
+Tutoriel deux les dossiers patients
+dans El Vita
+
+2
+00:00:04,023 --> 00:00:06,526
+Voyons comment centraliser toutes
+vos données cliniques sans
+
+3
+00:00:06,536 --> 00:00:08,000
+jamais mélanger deux malades
+
+4
+00:00:09,451 --> 00:00:12,171
+Depuis l'écran d'accueil touchez
+l'icône dossier en haut à
+
+5
+00:00:12,181 --> 00:00:12,816
+droite
+
+6
+00:00:13,610 --> 00:00:16,253
+Vous accédez immédiatement à la
+liste de vos dossiers patients
+
+7
+00:00:16,263 --> 00:00:18,135
+enregistrés sur votre téléphone
+
+8
+00:00:19,579 --> 00:00:20,942
+Pour ouvrir un nouveau dossier
+
+9
+00:00:21,148 --> 00:00:23,391
+appuyez sur le bouton plus en bas à
+droite
+
+10
+00:00:24,185 --> 00:00:25,854
+Par respect du secret médical
+
+11
+00:00:26,111 --> 00:00:28,047
+utilisez des initiales ou un
+pseudonyme
+
+12
+00:00:28,228 --> 00:00:29,234
+puis indiquez l'âge
+
+13
+00:00:29,440 --> 00:00:30,075
+le sexe
+
+14
+00:00:30,256 --> 00:00:31,109
+le service
+
+15
+00:00:31,315 --> 00:00:32,753
+la chambre et le motif
+
+16
+00:00:34,195 --> 00:00:35,545
+En ouvrant le dossier créé
+
+17
+00:00:35,777 --> 00:00:38,887
+tout est regroupé au même endroit en
+cinq onglets Observation
+
+18
+00:00:39,055 --> 00:00:40,086
+Visites Quotidiennes
+
+19
+00:00:40,292 --> 00:00:40,928
+Constantes
+
+20
+00:00:41,134 --> 00:00:42,763
+Score de Glasgow et Analyses
+
+21
+00:00:44,227 --> 00:00:46,916
+Vous pouvez aussi lancer directement
+une nouvelle constante
+
+22
+00:00:47,148 --> 00:00:49,455
+un Glasgow ou une visite depuis la
+fiche du patient
+
+23
+00:00:49,686 --> 00:00:52,043
+sans aucune double saisie ailleurs
+dans l'application
+
+24
+00:00:53,491 --> 00:00:56,270
+Chaque dossier reste strictement
+local sur votre appareil
+
+25
+00:00:56,450 --> 00:00:57,303
+même hors ligne
+
+26
+00:00:58,097 --> 00:00:59,421
+El Vita Apprendre
+
+27
+00:00:59,602 --> 00:01:00,250
+Comprendre
+
+28
+00:01:00,431 --> 00:01:01,193
+Pratiquer
+

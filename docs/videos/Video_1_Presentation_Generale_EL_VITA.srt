@@ -1,0 +1,168 @@
+1
+00:00:00,501 --> 00:00:01,877
+Bienvenue sur El Vita
+
+2
+00:00:02,083 --> 00:00:04,828
+votre compagnon clinique et
+pédagogique pour le lit du malade
+
+3
+00:00:04,838 --> 00:00:05,843
+et le tour de salle
+
+4
+00:00:06,624 --> 00:00:09,301
+Sa devise guide chaque journée de
+stage Apprendre
+
+5
+00:00:09,482 --> 00:00:10,130
+Comprendre
+
+6
+00:00:10,311 --> 00:00:11,098
+Pratiquer
+
+7
+00:00:12,649 --> 00:00:14,063
+Voici l'écran d'accueil
+
+8
+00:00:14,282 --> 00:00:16,167
+utilisable à cent pour cent hors
+ligne
+
+9
+00:00:16,961 --> 00:00:17,801
+En haut à droite
+
+10
+00:00:18,007 --> 00:00:20,237
+touchez l'icône dossier pour gérer
+vos patients
+
+11
+00:00:20,482 --> 00:00:23,387
+ou l'icône profil pour personnaliser
+votre compte étudiant
+
+12
+00:00:24,791 --> 00:00:25,809
+Juste en dessous
+
+13
+00:00:26,041 --> 00:00:28,794
+retrouvez vingt-trois fiches repères
+de prévention médicale
+
+14
+00:00:29,013 --> 00:00:31,778
+puis naviguez entre les modules
+grâce à la barre inférieure
+
+15
+00:00:33,215 --> 00:00:34,425
+Dans le module Clinique
+
+16
+00:00:34,644 --> 00:00:37,397
+suivez la méthode complète
+d'interrogatoire en quatorze points
+
+17
+00:00:37,628 --> 00:00:40,284
+rédigez une observation structurée
+et assurez le suivi
+
+18
+00:00:40,294 --> 00:00:41,605
+quotidien des visites
+
+19
+00:00:43,105 --> 00:00:43,919
+Dans Mesures
+
+20
+00:00:44,138 --> 00:00:45,603
+rattachez un dossier patient
+
+21
+00:00:45,847 --> 00:00:48,486
+saisissez ses constantes vitales ou
+son score de Glasgow
+
+22
+00:00:48,717 --> 00:00:51,087
+et visualisez l'évolution sur des
+courbes claires
+
+23
+00:00:52,587 --> 00:00:53,478
+Dans Analyses
+
+24
+00:00:53,697 --> 00:00:56,322
+interprétez rapidement la numération
+formule sanguine
+
+25
+00:00:56,516 --> 00:00:57,381
+le bilan rénal
+
+26
+00:00:57,664 --> 00:00:58,312
+hépatique
+
+27
+00:00:58,531 --> 00:01:01,314
+l'hémostase et les bandelettes
+urinaires directement liés au
+
+28
+00:01:01,324 --> 00:01:01,959
+patient
+
+29
+00:01:03,461 --> 00:01:04,058
+Enfin
+
+30
+00:01:04,328 --> 00:01:06,831
+l'espace Sémiologie met à votre
+portée trois cent quatre
+
+31
+00:01:06,841 --> 00:01:07,681
+fiches complètes
+
+32
+00:01:07,925 --> 00:01:10,300
+trente et un cours universitaires et
+quatre-vingt-dix QCM
+
+33
+00:01:10,310 --> 00:01:11,774
+corrigés pour vous entraîner
+
+34
+00:01:13,405 --> 00:01:14,092
+Gratuit
+
+35
+00:01:14,323 --> 00:01:16,987
+sans publicité et respectueux du
+secret médical
+
+36
+00:01:17,781 --> 00:01:19,105
+El Vita Apprendre
+
+37
+00:01:19,286 --> 00:01:19,935
+Comprendre
+
+38
+00:01:20,115 --> 00:01:20,877
+Pratiquer
+

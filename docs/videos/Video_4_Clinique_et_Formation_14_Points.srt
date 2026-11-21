@@ -1,0 +1,128 @@
+1
+00:00:00,451 --> 00:00:03,604
+Tutoriel quatre le module Clinique
+et la formation en quatorze
+
+2
+00:00:03,614 --> 00:00:04,020
+points
+
+3
+00:00:04,802 --> 00:00:07,279
+Passez d'un interrogatoire hésitant
+à une présentation
+
+4
+00:00:07,289 --> 00:00:08,842
+structurée au tour de salle
+
+5
+00:00:10,291 --> 00:00:11,450
+Dans l'onglet Clinique
+
+6
+00:00:11,681 --> 00:00:14,473
+ouvrez d'abord la carte Formation
+Clinique Pédagogique
+
+7
+00:00:15,267 --> 00:00:17,165
+Elle réunit six ateliers progressifs
+
+8
+00:00:17,346 --> 00:00:20,008
+dont la méthode complète
+d'interrogatoire en quatorze points
+
+9
+00:00:21,451 --> 00:00:23,974
+Vous y trouverez les questions
+exactes à poser au malade
+
+10
+00:00:24,155 --> 00:00:26,709
+des exercices de classement entre
+histoire de la maladie et
+
+11
+00:00:26,719 --> 00:00:27,431
+antécédents
+
+12
+00:00:27,676 --> 00:00:30,268
+des transitions fluides et une
+grille pour votre présentation
+
+13
+00:00:30,278 --> 00:00:30,861
+orale
+
+14
+00:00:32,299 --> 00:00:35,218
+Revenez ensuite au Formulaire
+d'Observation Structurée
+
+15
+00:00:35,999 --> 00:00:38,280
+En sélectionnant un dossier patient
+déjà créé
+
+16
+00:00:38,525 --> 00:00:39,237
+le motif
+
+17
+00:00:39,443 --> 00:00:40,602
+les dernières constantes
+
+18
+00:00:40,820 --> 00:00:42,736
+le Glasgow et les bilans biologiques
+s'importent
+
+19
+00:00:42,746 --> 00:00:43,636
+automatiquement
+
+20
+00:00:45,091 --> 00:00:47,530
+Complétez simplement l'examen
+clinique et générez une
+
+21
+00:00:47,540 --> 00:00:48,788
+observation claire
+
+22
+00:00:49,582 --> 00:00:50,460
+Chaque matin
+
+23
+00:00:50,704 --> 00:00:53,322
+l'onglet Mise à Jour Clinique permet
+de rédiger l'évolution
+
+24
+00:00:53,332 --> 00:00:54,885
+quotidienne jour par jour
+
+25
+00:00:56,323 --> 00:00:57,545
+Zéro double saisie
+
+26
+00:00:57,764 --> 00:00:59,586
+zéro oubli devant votre senior
+
+27
+00:01:00,367 --> 00:01:01,692
+El Vita Apprendre
+
+28
+00:01:01,872 --> 00:01:02,521
+Comprendre
+
+29
+00:01:02,702 --> 00:01:03,464
+Pratiquer
+
