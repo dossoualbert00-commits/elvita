@@ -1,0 +1,129 @@
+1
+00:00:00,451 --> 00:00:03,612
+Tutoriel trois les mesures vitales
+et le score de Glasgow
+
+2
+00:00:04,393 --> 00:00:06,998
+Apprenez à détecter une urgence et à
+tracer l'évolution
+
+3
+00:00:07,008 --> 00:00:08,383
+clinique de votre patient
+
+4
+00:00:09,835 --> 00:00:11,733
+Ouvrez l'onglet Mesures en bas de
+l'écran
+
+5
+00:00:12,527 --> 00:00:14,694
+Commencez par associer un dossier
+patient en haut
+
+6
+00:00:14,925 --> 00:00:17,760
+afin que chaque constante soit
+automatiquement rattachée à son
+
+7
+00:00:17,770 --> 00:00:18,392
+suivi
+
+8
+00:00:19,843 --> 00:00:22,367
+Saisissez les paramètres
+physiologiques disponibles
+
+9
+00:00:22,483 --> 00:00:23,323
+température
+
+10
+00:00:23,529 --> 00:00:24,969
+saturation en oxygène
+
+11
+00:00:25,213 --> 00:00:27,379
+tension artérielle systolique et
+diastolique
+
+12
+00:00:27,560 --> 00:00:29,610
+fréquences cardiaque et respiratoire
+
+13
+00:00:31,075 --> 00:00:33,815
+El Vita calcule aussitôt la pression
+artérielle moyenne
+
+14
+00:00:34,060 --> 00:00:35,448
+l'indice de masse corporelle
+
+15
+00:00:35,718 --> 00:00:38,272
+affiche le niveau d'alerte et
+détaille la conduite à tenir en
+
+16
+00:00:38,282 --> 00:00:39,656
+huit points pédagogiques
+
+17
+00:00:41,107 --> 00:00:43,852
+Passez ensuite sur le sous-onglet
+Score de Glasgow pour coter
+
+18
+00:00:43,862 --> 00:00:44,881
+l'ouverture des yeux
+
+19
+00:00:45,112 --> 00:00:46,858
+la réponse verbale et motrice
+
+20
+00:00:47,651 --> 00:00:48,632
+En dessous de huit
+
+21
+00:00:48,889 --> 00:00:51,060
+une alerte critique de protection
+des voies aériennes
+
+22
+00:00:51,070 --> 00:00:51,870
+s'affiche
+
+23
+00:00:53,323 --> 00:00:53,920
+Enfin
+
+24
+00:00:54,114 --> 00:00:55,298
+dans Historique et Courbes
+
+25
+00:00:55,530 --> 00:00:58,602
+visualisez automatiquement
+l'évolution de la tension du pouls
+
+26
+00:00:58,846 --> 00:01:00,757
+de la température et de la
+saturation
+
+27
+00:01:01,551 --> 00:01:02,876
+El Vita Apprendre
+
+28
+00:01:03,056 --> 00:01:03,705
+Comprendre
+
+29
+00:01:03,885 --> 00:01:04,648
+Pratiquer
+

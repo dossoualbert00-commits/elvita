@@ -1,0 +1,128 @@
+1
+00:00:00,451 --> 00:00:02,911
+Tutoriel cinq les analyses
+biologiques
+
+2
+00:00:03,705 --> 00:00:06,386
+Voyons comment interpréter un bilan
+complet au lit du malade
+
+3
+00:00:06,396 --> 00:00:07,860
+et en retenir l'essentiel
+
+4
+00:00:09,307 --> 00:00:10,491
+Dans l'onglet Analyses
+
+5
+00:00:10,697 --> 00:00:13,073
+sélectionnez d'abord le dossier
+patient associé en haut de
+
+6
+00:00:13,083 --> 00:00:13,616
+l'écran
+
+7
+00:00:13,861 --> 00:00:16,491
+pour sauvegarder la conclusion
+biologique directement dans son
+
+8
+00:00:16,501 --> 00:00:17,123
+suivi
+
+9
+00:00:18,571 --> 00:00:21,405
+Le premier onglet analyse la
+numération formule sanguine sur
+
+10
+00:00:21,415 --> 00:00:23,799
+les trois lignées hémoglobine et
+réticulocytes
+
+11
+00:00:24,030 --> 00:00:25,954
+globules blancs et formule
+leucocytaire
+
+12
+00:00:26,135 --> 00:00:26,873
+puis plaquettes
+
+13
+00:00:27,142 --> 00:00:29,275
+avec détection des cytopénies et
+urgences comme
+
+14
+00:00:29,285 --> 00:00:30,519
+l'agranulocytose
+
+15
+00:00:31,963 --> 00:00:34,428
+Naviguez ensuite vers UECréat et
+Rein pour calculer la
+
+16
+00:00:34,438 --> 00:00:36,833
+clairance selon Cockcroft-Gault et
+le trou anionique
+
+17
+00:00:37,027 --> 00:00:39,627
+puis vers le Bilan Hépatique pour
+distinguer cytolyse
+
+18
+00:00:39,807 --> 00:00:41,781
+cholestase ou atteinte pancréatique
+
+19
+00:00:43,243 --> 00:00:45,397
+Les onglets suivants interprètent la
+CRP
+
+20
+00:00:45,641 --> 00:00:46,251
+le TP
+
+21
+00:00:46,496 --> 00:00:47,705
+l'INR et les D-dimères
+
+22
+00:00:47,937 --> 00:00:50,440
+ainsi que la bandelette urinaire
+pour orienter immédiatement
+
+23
+00:00:50,450 --> 00:00:52,998
+devant une infection urinaire ou une
+acidocétose
+
+24
+00:00:54,427 --> 00:00:57,065
+Chaque analyse génère une conclusion
+médicale claire
+
+25
+00:00:57,297 --> 00:00:59,030
+archivée dans l'historique du
+patient
+
+26
+00:00:59,823 --> 00:01:01,148
+El Vita Apprendre
+
+27
+00:01:01,329 --> 00:01:01,977
+Comprendre
+
+28
+00:01:02,158 --> 00:01:02,920
+Pratiquer
+
